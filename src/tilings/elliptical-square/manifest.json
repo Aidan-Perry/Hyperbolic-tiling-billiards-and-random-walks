@@ -1,0 +1,24 @@
+{
+  "id": "elliptical-square",
+  "version": "1",
+  "name": "Elliptically Distorted Square Grid",
+  "description": "The image of the Euclidean square grid under the radial map to the open unit disk.",
+  "tileTypes": [
+    {"id": "square", "name": "Square", "sideCount": 4}
+  ],
+  "topology": {"vertexValence": 4, "infinite": true},
+  "representations": [
+    {"id": "disk", "name": "Poincaré Disk", "authoritative": true},
+    {"id": "square-grid", "name": "Euclidean Square Grid", "authoritative": false}
+  ],
+  "parameters": [
+    {"id": "centerX", "label": "Tiling center cₓ", "type": "scalar", "default": "0"},
+    {"id": "centerY", "label": "Tiling center cᵧ", "type": "scalar", "default": "0"}
+  ],
+  "capabilities": {
+    "adjacency": true,
+    "diskArea": false,
+    "referenceArea": true,
+    "referenceAreaValue": "1"
+  }
+}

@@ -1,0 +1,111 @@
+#!/bin/zsh
+
+set -u
+
+SCRIPT_DIR="${0:A:h}"
+APP_URL="http://127.0.0.1:8765"
+ENGINE_PATH="$SCRIPT_DIR/build/htb_engine"
+
+cd "$SCRIPT_DIR" || exit 1
+
+open_workspace() {
+  open "$APP_URL/disk" "$APP_URL/plane" "$APP_URL/diagnostics"
+}
+
+if curl --silent --fail "$APP_URL/api/health" >/dev/null 2>&1; then
+  echo "Hyperbolic Tiling Billiards is already running."
+  open_workspace
+  exit 0
+fi
+
+echo "Starting Hyperbolic Tiling Billiards..."
+
+for program in node npm cmake pkg-config; do
+  if ! command -v "$program" >/dev/null 2>&1; then
+    echo
+    echo "Missing required program: $program"
+    echo "On macOS, install the native dependencies with:"
+    echo "  brew install cmake flint jansson"
+    echo
+    read "?Press Return to close."
+    exit 1
+  fi
+done
+
+if ! pkg-config --exists flint jansson; then
+  echo
+  echo "FLINT 3.x or Jansson is unavailable to pkg-config."
+  echo "Install them with: brew install flint jansson"
+  echo
+  read "?Press Return to close."
+  exit 1
+fi
+
+if [[ ! -f "$SCRIPT_DIR/node_modules/p5/lib/p5.min.js" ]]; then
+  echo "Installing the local p5.js dependency..."
+  if ! npm install; then
+    echo
+    echo "npm install failed. Check the messages above."
+    read "?Press Return to close."
+    exit 1
+  fi
+fi
+
+echo "Checking the native engine..."
+if ! cmake -S "$SCRIPT_DIR" -B "$SCRIPT_DIR/build" -DCMAKE_BUILD_TYPE=RelWithDebInfo; then
+  echo
+  echo "CMake configuration failed."
+  read "?Press Return to close."
+  exit 1
+fi
+
+if ! cmake --build "$SCRIPT_DIR/build" -j 4; then
+  echo
+  echo "The native engine failed to compile."
+  read "?Press Return to close."
+  exit 1
+fi
+
+if [[ ! -x "$ENGINE_PATH" ]]; then
+  echo
+  echo "The native executable was not produced at $ENGINE_PATH"
+  read "?Press Return to close."
+  exit 1
+fi
+
+echo "Launching the local server..."
+HTB_ENGINE="$ENGINE_PATH" node "$SCRIPT_DIR/src/server/server.js" &
+SERVER_PID=$!
+
+cleanup() {
+  if kill -0 "$SERVER_PID" >/dev/null 2>&1; then
+    kill "$SERVER_PID" >/dev/null 2>&1
+    wait "$SERVER_PID" 2>/dev/null
+  fi
+}
+trap cleanup EXIT INT TERM
+
+for attempt in {1..50}; do
+  if curl --silent --fail "$APP_URL/api/health" >/dev/null 2>&1; then
+    echo "Opening the three synchronized application pages..."
+    open_workspace
+    echo
+    echo "The simulator is running at $APP_URL"
+    echo "Keep this Terminal window open. Close it or press Control-C to stop the server."
+    wait "$SERVER_PID"
+    exit $?
+  fi
+
+  if ! kill -0 "$SERVER_PID" >/dev/null 2>&1; then
+    echo
+    echo "The local server stopped before it became ready."
+    read "?Press Return to close."
+    exit 1
+  fi
+  sleep 0.1
+done
+
+echo
+echo "The server did not become ready at $APP_URL."
+read "?Press Return to close."
+exit 1
