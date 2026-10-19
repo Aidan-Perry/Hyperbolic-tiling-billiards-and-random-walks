@@ -1,10 +1,12 @@
 (() => {
   const definitions=[
-    ['graph-displacement','displacement'],['graph-tiles','tiles'],['graph-length','length'],['graph-clearance','clearance'],['graph-separation','separation']
+    ['graph-displacement','displacement'],['graph-tiles','tiles'],['graph-length','length'],['graph-clearance','clearance'],['graph-separation','separation'],
+    ['graph-walk-displacement','walk-displacement'],['graph-walk-tiles','walk-tiles'],['graph-walk-length','walk-length'],['graph-walk-area','walk-area'],['graph-walk-probability','walk-probability'],['graph-walk-repeats','walk-repeats']
   ];
   const charts=new Map();let chartState=null,space='disk';
   function seriesFor(kind){
     const result=chartState?.result;if(!result)return[];const ts=result.trajectories||[];
+    if(kind.startsWith('walk-')){if(result.simulationType!=='randomWalk')return[];const data=(result.walk?.steps||[]).map(s=>[s.index,kind==='walk-displacement'?s.diskDisplacement:kind==='walk-tiles'?s.uniqueTiles:kind==='walk-length'?s.cumulativeLength:kind==='walk-area'?s.tileArea?.approx:kind==='walk-probability'?s.selectedProbability:s.repeatedVisits]);return[{name:'Random walk',color:'#c7242f',data}]}
     if(kind==='separation'){
       if(ts.length<2)return[];const n=Math.min(ts[0].events.length,ts[1].events.length),data=[];for(let i=0;i<n;i++){const a=HTB.point(ts[0].events[i],space),b=HTB.point(ts[1].events[i],space);data.push([i,Math.hypot(a[0]-b[0],a[1]-b[1])])}return[{name:'A ↔ B (presentation enclosure centers)',color:'#444',data}];
     }
@@ -15,9 +17,9 @@
   }
   function sketch(id,kind){const host=document.querySelector(`#${id}`);return new p5(p=>{
     p.setup=()=>{const c=p.createCanvas(host.clientWidth,205);c.parent(host)};
-    p.draw=()=>{const width=host.clientWidth;if(width>0&&width!==p.width)p.resizeCanvas(width,205);p.background(255);const series=seriesFor(kind),all=series.flatMap(s=>s.data).filter(q=>Number.isFinite(q[1]));p.textFont('sans-serif');p.textSize(10);p.stroke(210);p.line(48,12,48,p.height-30);p.line(48,p.height-30,p.width-12,p.height-30);if(!all.length){p.noStroke();p.fill(110);p.text('No computed data',60,70);return}const maxX=Math.max(1,...all.map(q=>q[0])),maxY=Math.max(1e-30,...all.map(q=>q[1]));const X=x=>48+x/maxX*(p.width-64),Y=y=>p.height-30-y/maxY*(p.height-48);p.noStroke();p.fill(90);p.text('0',35,p.height-26);p.text(String(maxX),p.width-25,p.height-16);p.text(maxY.toPrecision(4),3,17);p.text('bounce',p.width/2,p.height-5);
+    p.draw=()=>{const width=host.clientWidth;if(width>0&&width!==p.width)p.resizeCanvas(width,205);p.background(255);const series=seriesFor(kind),all=series.flatMap(s=>s.data).filter(q=>Number.isFinite(q[1]));p.textFont('sans-serif');p.textSize(10);p.stroke(210);p.line(48,12,48,p.height-30);p.line(48,p.height-30,p.width-12,p.height-30);if(!all.length){p.noStroke();p.fill(110);p.text('No computed data',60,70);return}const maxX=Math.max(1,...all.map(q=>q[0])),maxY=Math.max(1e-30,...all.map(q=>q[1]));const X=x=>48+x/maxX*(p.width-64),Y=y=>p.height-30-y/maxY*(p.height-48);p.noStroke();p.fill(90);p.text('0',35,p.height-26);p.text(String(maxX),p.width-25,p.height-16);p.text(maxY.toPrecision(4),3,17);
       series.forEach((s,index)=>{p.noFill();p.stroke(s.color);p.strokeWeight(1.7);p.beginShape();s.data.forEach(q=>{if(Number.isFinite(q[1]))p.vertex(X(q[0]),Y(q[1]))});p.endShape();p.noStroke();p.fill(s.color);p.text(s.name,58+index*145,16)});
-      const selected=Math.min(chartState?.selectedBounce||0,maxX);p.stroke(70,110);p.line(X(selected),12,X(selected),p.height-30);p.noStroke();p.fill(50);p.text(String(selected),X(selected)+3,p.height-34);
+      p.noStroke();p.fill(90);p.text(kind.startsWith('walk-')?'step':'bounce',p.width/2,p.height-5);const selected=Math.min(chartState?.selectedBounce||0,maxX);p.stroke(70,110);p.line(X(selected),12,X(selected),p.height-30);p.noStroke();p.fill(50);p.text(String(selected),X(selected)+3,p.height-34);
     };p.windowResized=()=>p.resizeCanvas(host.clientWidth,205);
   },host)}
   definitions.forEach(([id,kind])=>charts.set(id,sketch(id,kind)));

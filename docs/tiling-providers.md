@@ -20,7 +20,7 @@ Tile identity is an opaque `htb_tile_id`. Its canonical `key` must be stable and
 
 Boundary identity follows the same rule. The `boundary_key` identifies the same geometric boundary from either adjacent tile; `local_index` is only meaningful to its provider. This is how the engine detects a true shared-vertex event without assuming names such as `left` or `top`.
 
-`htb_tiling_neighbors` is the first-class adjacency lookup. It enumerates the tile's edges and resolves each neighbor through the provider. The lookup is independent of billiard propagation, so a future random-walk runner can use it directly. `tile_measure` already distinguishes disk Euclidean area, reference-space Euclidean area, and disk perimeter; a random-walk policy can request a supported measure and normalize its own probability distribution. The elliptical provider reports reference area exactly as 1. Both providers currently report disk area as unsupported.
+`htb_tiling_neighbors` is the first-class adjacency lookup. It enumerates the tile's edges and resolves each positive-side-length neighbor through the provider; vertex-only contacts never enter the list. The lookup is independent of billiard propagation and is used directly by the random-walk runner. Providers also expose `tile_center` and `disk_area_approx`, allowing the generic runner to draw canonical center paths and normalize stochastic weights. The area call returns an explicit numerical estimate and estimated error rather than pretending to be an exact scalar. The elliptical provider uses fixed Gauss-Legendre quadrature of the radial-map Jacobian; the order-5 provider numerically integrates its geodesic boundary.
 
 ## Metadata manifest
 

@@ -2,6 +2,7 @@
 
 #include <flint/flint.h>
 #include <flint/fmpq.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -235,6 +236,17 @@ static int intersections(const htb_tiling*t,const htb_vec2*p,const htb_vec2*v,co
 static int project_vertex(const htb_tiling*t,const q5v*x,htb_vec2*out){q5_state*s=t->state;htb_scalar local[3],world[3];for(int i=0;i<3;i++){htb_scalar_init(t->arith,&local[i]);htb_scalar_init(t->arith,&world[i]);}int ok=scalar_from_v(s,local,x)&&sm_apply(world,s->h,local)&&normalize_hyper(world)&&hyper_to_disk(world,out);for(int i=0;i<3;i++){htb_scalar_clear(&local[i]);htb_scalar_clear(&world[i]);}return ok;}
 static int edge_vertices(const htb_tiling*t,const htb_tile_id*tile,const htb_edge_ref*edge,htb_vec2*da,htb_vec2*db,htb_vec2*ra,htb_vec2*rb,char*error,size_t error_size){q5_state*s=t->state;size_t id;if(!tile_index(s,tile,&id)||edge->local_index<0||edge->local_index>=4){snprintf(error,error_size,"invalid {4,5} edge");return 0;}q5v a,b;v_init(&a);v_init(&b);mv_mul(&a,&s->tiles[id].transform,&s->base_vertex[(edge->local_index+3)%4]);mv_mul(&b,&s->tiles[id].transform,&s->base_vertex[edge->local_index]);int ok=project_vertex(t,&a,da)&&project_vertex(t,&b,db)&&htb_vec2_set(ra,da)&&htb_vec2_set(rb,db);v_clear(&a);v_clear(&b);return ok;}
 static int tile_measure(const htb_tiling*t,const htb_tile_id*tile,htb_measure_kind kind,htb_scalar*measure,char*error,size_t error_size){(void)t;(void)tile;(void)kind;(void)measure;snprintf(error,error_size,"Euclidean tile-area measurement is not yet implemented for order5-square@1");return 0;}
+static int tile_center(const htb_tiling*t,const htb_tile_id*tile,htb_vec2*center,char*error,size_t error_size){q5_state*s=t->state;size_t id;if(!tile_index(s,tile,&id)){snprintf(error,error_size,"invalid {4,5} tile identity");return 0;}q5v value;v_init(&value);mv_mul(&value,&s->tiles[id].transform,&s->base_center);int ok=project_vertex(t,&value,center);v_clear(&value);return ok;}
+static void geodesic_sample(double ax,double ay,double bx,double by,double t,double*x,double*y){
+    double nr=bx-ax,ni=by-ay,dr=1-ax*bx-ay*by,di=ay*bx-ax*by,dd=dr*dr+di*di,wr=(nr*dr+ni*di)/dd,wi=(ni*dr-nr*di)/dd;
+    double qx=t*wr,qy=t*wi,er=1+ax*qx+ay*qy,ei=ax*qy-ay*qx,ed=er*er+ei*ei;
+    *x=((qx+ax)*er+(qy+ay)*ei)/ed;*y=((qy+ay)*er-(qx+ax)*ei)/ed;
+}
+static double sampled_tile_area(const htb_tiling*t,size_t id,int segments,int*ok){
+    q5_state*s=t->state;double vx[4],vy[4];for(int k=0;k<4;k++){q5v v;v_init(&v);htb_vec2 p;htb_vec2_init(t->arith,&p);mv_mul(&v,&s->tiles[id].transform,&s->base_vertex[k]);if(!project_vertex(t,&v,&p)){*ok=0;htb_vec2_clear(&p);v_clear(&v);return 0;}vx[k]=htb_scalar_get_approx(&p.x);vy[k]=htb_scalar_get_approx(&p.y);htb_vec2_clear(&p);v_clear(&v);}
+    double first_x=0,first_y=0,previous_x=0,previous_y=0,sum=0;int have=0;for(int edge=0;edge<4;edge++){int a=(edge+3)%4,b=edge;for(int j=0;j<=segments;j++){if(edge&&j==0)continue;double x,y;geodesic_sample(vx[a],vy[a],vx[b],vy[b],(double)j/segments,&x,&y);if(!have){first_x=previous_x=x;first_y=previous_y=y;have=1;}else{sum+=previous_x*y-x*previous_y;previous_x=x;previous_y=y;}}}sum+=previous_x*first_y-first_x*previous_y;return .5*fabs(sum);
+}
+static int disk_area_approx(const htb_tiling*t,const htb_tile_id*tile,double*area,double*estimated_error,char*error,size_t error_size){q5_state*s=t->state;size_t id;if(!tile_index(s,tile,&id)){snprintf(error,error_size,"invalid {4,5} tile identity");return 0;}int ok=1;double low=sampled_tile_area(t,id,48,&ok),high=sampled_tile_area(t,id,96,&ok);if(!ok||!isfinite(high)||high<=0){snprintf(error,error_size,"could not numerically evaluate disk area for tile %s",tile->label);return 0;}*area=high;*estimated_error=fabs(high-low);return 1;}
 
 static const htb_parameter_spec parameters[]={
     {"centerU","Central vertex u",HTB_PARAM_SCALAR,"0","Disk u-coordinate of a distinguished order-5 vertex."},
@@ -247,5 +259,6 @@ const htb_tiling_definition htb_order5_square_definition={
     .reference_id=NULL,.reference_name=NULL,.tile_types=tile_types,.tile_type_count=1,.parameters=parameters,.parameter_count=2,
     .ops={.initialize=initialize,.clear=clear_tiling,.locate_point=locate_point,.enumerate_edges=enumerate_edges,
       .intersections=intersections,.normal_at=normal_at,.adjacent=adjacent,.edge_vertices=edge_vertices,
-      .to_reference=NULL,.from_reference=NULL,.tile_measure=tile_measure}
+      .to_reference=NULL,.from_reference=NULL,.tile_measure=tile_measure,
+      .tile_center=tile_center,.disk_area_approx=disk_area_approx}
 };

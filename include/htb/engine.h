@@ -22,6 +22,11 @@ typedef enum {
     HTB_STATUS_INTERNAL_ERROR
 } htb_status;
 
+typedef enum {
+    HTB_SIMULATION_BILLIARDS = 0,
+    HTB_SIMULATION_RANDOM_WALK = 1
+} htb_simulation_kind;
+
 typedef struct {
     char id[2];
     char start_u[HTB_TEXT], start_v[HTB_TEXT];
@@ -32,7 +37,15 @@ typedef struct {
 } htb_trajectory_input;
 
 typedef struct {
+    char start_u[HTB_TEXT], start_v[HTB_TEXT];
+    char seed[HTB_TEXT];
+    char distribution[64];
+    int steps;
+} htb_walk_input;
+
+typedef struct {
     char run_id[80];
+    htb_simulation_kind simulation_kind;
     htb_backend_kind backend;
     htb_tiling_config tiling;
     /* Version-1 compatibility fields. New requests use tiling parameters. */
@@ -41,7 +54,44 @@ typedef struct {
     size_t memory_limit_mb;
     int trajectory_count;
     htb_trajectory_input trajectories[2];
+    htb_walk_input walk;
 } htb_run_request;
+
+typedef struct {
+    int index;
+    htb_tile_id tile;
+    double center_u, center_v;
+    double tile_area, tile_area_error;
+    double selected_probability, random_draw;
+    double disk_displacement, cumulative_length;
+    int stayed, unique_tiles, repeated_visits;
+} htb_walk_step;
+
+typedef struct {
+    htb_tile_id tile;
+    double center_u, center_v, tile_area, tile_area_error;
+    int visited, visit_count, first_visit, graph_depth;
+} htb_walk_graph_node;
+
+typedef struct {
+    int source, target;
+    int traversals;
+} htb_walk_graph_edge;
+
+typedef struct {
+    htb_status status;
+    char status_detail[HTB_STATUS_TEXT];
+    char distribution[64], seed[HTB_TEXT];
+    int requested_steps, completed_steps;
+    int unique_tiles, repeated_visits, stayed_steps;
+    double runtime_seconds;
+    htb_walk_step *steps;
+    size_t step_count, step_capacity;
+    htb_walk_graph_node *nodes;
+    size_t node_count, node_capacity;
+    htb_walk_graph_edge *edges;
+    size_t edge_count, edge_capacity;
+} htb_walk_result;
 
 typedef struct {
     int index;
@@ -89,12 +139,14 @@ typedef struct {
 
 typedef struct {
     char run_id[80];
+    htb_simulation_kind simulation_kind;
     htb_backend_kind backend;
     htb_status status;
     char status_detail[HTB_STATUS_TEXT];
     htb_tiling_config tiling;
     htb_trajectory_result trajectories[2];
     int trajectory_count;
+    htb_walk_result walk;
     double runtime_seconds;
     long peak_memory_kb;
     uint64_t comparisons, unresolved_comparisons, candidates_examined;
@@ -106,6 +158,8 @@ typedef void (*htb_progress_fn)(json_t *event, void *user);
 int htb_parse_request_json(json_t *root, htb_run_request *request, char *error, size_t error_size);
 int htb_run(const htb_run_request *request, htb_run_result *result,
             htb_progress_fn progress, void *progress_user);
+int htb_run_random_walk(const htb_run_request *request, htb_run_result *result,
+                        htb_progress_fn progress, void *progress_user);
 void htb_run_result_clear(htb_run_result *result);
 json_t *htb_run_result_json(const htb_run_request *request, const htb_run_result *result);
 const char *htb_status_name(htb_status status);

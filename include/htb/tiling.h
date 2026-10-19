@@ -153,6 +153,14 @@ typedef struct {
     int (*tile_measure)(const htb_tiling *tiling, const htb_tile_id *tile,
                         htb_measure_kind kind, htb_scalar *measure,
                         char *error, size_t error_size);
+    /* Presentation coordinates and approximate Euclidean disk area used by
+       stochastic simulations.  Probability metadata must report that these
+       areas are numerical approximations; billiard decisions never use them. */
+    int (*tile_center)(const htb_tiling *tiling, const htb_tile_id *tile,
+                       htb_vec2 *center, char *error, size_t error_size);
+    int (*disk_area_approx)(const htb_tiling *tiling, const htb_tile_id *tile,
+                            double *area, double *estimated_error,
+                            char *error, size_t error_size);
 } htb_tiling_ops;
 
 struct htb_tiling_definition {

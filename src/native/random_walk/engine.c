@@ -1,0 +1,65 @@
+#include "htb/engine.h"
+
+#include <errno.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/resource.h>
+#include <time.h>
+
+static double now_seconds(void){struct timespec ts;clock_gettime(CLOCK_MONOTONIC,&ts);return(double)ts.tv_sec+(double)ts.tv_nsec/1e9;}
+
+typedef struct { uint64_t state; } walk_rng;
+static uint64_t rng_next(walk_rng*r){uint64_t z=(r->state+=UINT64_C(0x9e3779b97f4a7c15));z=(z^(z>>30))*UINT64_C(0xbf58476d1ce4e5b9);z=(z^(z>>27))*UINT64_C(0x94d049bb133111eb);return z^(z>>31);}
+static double rng_unit(walk_rng*r){return(double)(rng_next(r)>>11)*0x1.0p-53;}
+
+static int parse_seed(const char*text,uint64_t*out){if(!text||!*text||*text=='-'||*text=='+')return 0;errno=0;char*end=NULL;unsigned long long value=strtoull(text,&end,10);if(errno||!end||*end)return 0;*out=(uint64_t)value;return 1;}
+static void emit_progress(htb_progress_fn fn,void*user,const char*type,int step){if(!fn)return;json_t*o=json_object();json_object_set_new(o,"type",json_string(type));if(step>=0)json_object_set_new(o,"step",json_integer(step));fn(o,user);json_decref(o);}
+
+static int node_index(const htb_walk_result*w,const htb_tile_id*tile){for(size_t i=0;i<w->node_count;i++)if(htb_tile_id_equal(&w->nodes[i].tile,tile))return(int)i;return-1;}
+static int ensure_node(htb_walk_result*w,const htb_tiling*tiling,const htb_tile_id*tile,char*error,size_t error_size){
+    int found=node_index(w,tile);if(found>=0)return found;
+    if(w->node_count==w->node_capacity){size_t next=w->node_capacity?w->node_capacity*2:32;void*p=realloc(w->nodes,next*sizeof(*w->nodes));if(!p){snprintf(error,error_size,"failed to allocate adjacency graph nodes");return-1;}w->nodes=p;w->node_capacity=next;}
+    htb_walk_graph_node*n=&w->nodes[w->node_count];memset(n,0,sizeof(*n));n->tile=*tile;n->first_visit=-1;n->graph_depth=-1;htb_vec2 center;htb_vec2_init(tiling->arith,&center);
+    int ok=tiling->definition->ops.tile_center&&tiling->definition->ops.tile_center(tiling,tile,&center,error,error_size)&&tiling->definition->ops.disk_area_approx&&tiling->definition->ops.disk_area_approx(tiling,tile,&n->tile_area,&n->tile_area_error,error,error_size);
+    if(ok){n->center_u=htb_scalar_get_approx(&center.x);n->center_v=htb_scalar_get_approx(&center.y);ok=isfinite(n->center_u)&&isfinite(n->center_v)&&isfinite(n->tile_area)&&n->tile_area>0;}
+    htb_vec2_clear(&center);if(!ok){if(!error[0])snprintf(error,error_size,"tiling provider could not supply random-walk geometry");return-1;}return(int)w->node_count++;
+}
+static int edge_index(const htb_walk_result*w,int a,int b){if(a>b){int t=a;a=b;b=t;}for(size_t i=0;i<w->edge_count;i++)if(w->edges[i].source==a&&w->edges[i].target==b)return(int)i;return-1;}
+static int ensure_edge(htb_walk_result*w,int a,int b){if(a>b){int t=a;a=b;b=t;}int found=edge_index(w,a,b);if(found>=0)return found;if(w->edge_count==w->edge_capacity){size_t next=w->edge_capacity?w->edge_capacity*2:64;void*p=realloc(w->edges,next*sizeof(*w->edges));if(!p)return-1;w->edges=p;w->edge_capacity=next;}htb_walk_graph_edge*e=&w->edges[w->edge_count];e->source=a;e->target=b;e->traversals=0;return(int)w->edge_count++;}
+static int append_step(htb_walk_result*w,const htb_walk_step*step){if(w->step_count==w->step_capacity){size_t next=w->step_capacity?w->step_capacity*2:64;void*p=realloc(w->steps,next*sizeof(*w->steps));if(!p)return 0;w->steps=p;w->step_capacity=next;}w->steps[w->step_count++]=*step;return 1;}
+static void assign_depths(htb_walk_result*w){if(!w->node_count)return;int*queue=malloc(w->node_count*sizeof(*queue));if(!queue)return;size_t head=0,tail=0;w->nodes[0].graph_depth=0;queue[tail++]=0;while(head<tail){int current=queue[head++],depth=w->nodes[current].graph_depth;for(size_t i=0;i<w->edge_count;i++){int next=w->edges[i].source==current?w->edges[i].target:w->edges[i].target==current?w->edges[i].source:-1;if(next>=0&&w->nodes[next].graph_depth<0){w->nodes[next].graph_depth=depth+1;queue[tail++]=next;}}}free(queue);}
+
+int htb_run_random_walk(const htb_run_request*request,htb_run_result*result,htb_progress_fn progress,void*progress_user){
+    memset(result,0,sizeof(*result));result->simulation_kind=HTB_SIMULATION_RANDOM_WALK;snprintf(result->run_id,sizeof(result->run_id),"%s",request->run_id);result->tiling=request->tiling;result->status=HTB_STATUS_COMPUTING;htb_walk_result*w=&result->walk;w->requested_steps=request->walk.steps;snprintf(w->distribution,sizeof(w->distribution),"%s",request->walk.distribution);snprintf(w->seed,sizeof(w->seed),"%s",request->walk.seed);double started=now_seconds();emit_progress(progress,progress_user,"run_started",-1);
+    char error[256]={0};uint64_t seed=0;if(!parse_seed(request->walk.seed,&seed)){w->status=HTB_STATUS_INVALID_INPUT;snprintf(w->status_detail,sizeof(w->status_detail),"random seed must be an unsigned 64-bit integer");goto finish;}walk_rng rng={seed};
+    htb_arith_ctx ctx;if(!htb_arith_ctx_init(&ctx,HTB_BACKEND_ARB,256,2048,error,sizeof(error))){w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"random-walk geometry context failed: %s",error);goto finish;}htb_tiling tiling;memset(&tiling,0,sizeof(tiling));htb_vec2 start;htb_vec2_init(&ctx,&start);htb_point_location location;htb_point_location_init(&location);int tiling_ready=0;
+    int ok=htb_tiling_init(&tiling,&ctx,&request->tiling,error,sizeof(error));tiling_ready=ok;if(ok)ok=htb_scalar_parse_rational(&start.x,request->walk.start_u,error,sizeof(error))&&htb_scalar_parse_rational(&start.y,request->walk.start_v,error,sizeof(error));htb_cmp inside=HTB_CMP_ERROR;if(ok)ok=htb_disk_contains(&start,&inside)&&inside==HTB_CMP_LESS;if(ok)ok=tiling.definition->ops.locate_point(&tiling,&start,&location,error,sizeof(error));
+    if(!ok){w->status=inside==HTB_CMP_UNRESOLVED?HTB_STATUS_UNRESOLVED:HTB_STATUS_INVALID_INPUT;snprintf(w->status_detail,sizeof(w->status_detail),"%s",error[0]?error:"starting point must be certifiably inside the disk");goto cleanup;}if(location.incident_edges.count){w->status=HTB_STATUS_INVALID_INPUT;snprintf(w->status_detail,sizeof(w->status_detail),"random-walk starting point lies on a tile boundary; choose a point unambiguously inside one tile");goto cleanup;}
+    int current=ensure_node(w,&tiling,&location.tile,error,sizeof(error));if(current<0){w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"%s",error);goto cleanup;}w->nodes[current].visited=1;w->nodes[current].visit_count=1;w->nodes[current].first_visit=0;w->unique_tiles=1;
+    double start_u=w->nodes[current].center_u,start_v=w->nodes[current].center_v,cumulative=0;htb_walk_step first={0};first.index=0;first.tile=w->nodes[current].tile;first.center_u=start_u;first.center_v=start_v;first.tile_area=w->nodes[current].tile_area;first.tile_area_error=w->nodes[current].tile_area_error;first.selected_probability=1;first.unique_tiles=1;if(!append_step(w,&first)){w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"failed to allocate walk history");goto cleanup;}emit_progress(progress,progress_user,"walk_step",0);
+    for(int step=1;step<=request->walk.steps;step++){
+        htb_adjacency_list neighbors;htb_adjacency_list_init(&neighbors);if(!htb_tiling_neighbors(&tiling,&w->nodes[current].tile,&neighbors,error,sizeof(error))){htb_adjacency_list_clear(&neighbors);w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"adjacency lookup failed at step %d: %s",step,error);goto cleanup;}
+        size_t count=neighbors.count+1;int*candidates=malloc(count*sizeof(*candidates));int*edges=malloc(count*sizeof(*edges));double*weights=malloc(count*sizeof(*weights));if(!candidates||!edges||!weights){free(candidates);free(edges);free(weights);htb_adjacency_list_clear(&neighbors);w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"failed to allocate transition candidates");goto cleanup;}
+        candidates[0]=current;edges[0]=-1;weights[0]=w->nodes[current].tile_area;double total=weights[0];int candidates_ok=1;for(size_t i=0;i<neighbors.count;i++){int node=ensure_node(w,&tiling,&neighbors.items[i].neighbor,error,sizeof(error));if(node<0){candidates_ok=0;break;}int edge=ensure_edge(w,current,node);if(edge<0){snprintf(error,sizeof(error),"failed to allocate adjacency graph edges");candidates_ok=0;break;}candidates[i+1]=node;edges[i+1]=edge;weights[i+1]=w->nodes[node].tile_area;total+=weights[i+1];}
+        if(!candidates_ok||!isfinite(total)||total<=0){free(candidates);free(edges);free(weights);htb_adjacency_list_clear(&neighbors);w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"%s",error[0]?error:"invalid transition weight sum");goto cleanup;}
+        double draw=rng_unit(&rng),target=draw*total,partial=0;size_t choice=count-1;for(size_t i=0;i<count;i++){partial+=weights[i];if(target<partial){choice=i;break;}}int next=candidates[choice],stayed=next==current;if(!stayed)w->edges[edges[choice]].traversals++;else w->stayed_steps++;
+        double du=w->nodes[next].center_u-w->nodes[current].center_u,dv=w->nodes[next].center_v-w->nodes[current].center_v;cumulative+=hypot(du,dv);if(w->nodes[next].visited){w->repeated_visits++;}else{w->nodes[next].visited=1;w->nodes[next].first_visit=step;w->unique_tiles++;}w->nodes[next].visit_count++;
+        htb_walk_step event={0};event.index=step;event.tile=w->nodes[next].tile;event.center_u=w->nodes[next].center_u;event.center_v=w->nodes[next].center_v;event.tile_area=w->nodes[next].tile_area;event.tile_area_error=w->nodes[next].tile_area_error;event.selected_probability=weights[choice]/total;event.random_draw=draw;event.stayed=stayed;event.unique_tiles=w->unique_tiles;event.repeated_visits=w->repeated_visits;event.disk_displacement=hypot(event.center_u-start_u,event.center_v-start_v);event.cumulative_length=cumulative;
+        free(candidates);free(edges);free(weights);htb_adjacency_list_clear(&neighbors);if(!append_step(w,&event)){w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"failed to append random-walk step");goto cleanup;}current=next;w->completed_steps=step;emit_progress(progress,progress_user,"walk_step",step);
+    }
+    /* The final tile has not acted as a source yet. Expand it once so the
+       exported graph always includes a complete one-edge halo around every
+       tile actually visited by the walk. */
+    {htb_adjacency_list halo;htb_adjacency_list_init(&halo);if(!htb_tiling_neighbors(&tiling,&w->nodes[current].tile,&halo,error,sizeof(error))){htb_adjacency_list_clear(&halo);w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"final adjacency halo failed: %s",error);goto cleanup;}for(size_t i=0;i<halo.count;i++){int node=ensure_node(w,&tiling,&halo.items[i].neighbor,error,sizeof(error));if(node<0||ensure_edge(w,current,node)<0){htb_adjacency_list_clear(&halo);w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"failed to complete adjacency halo");goto cleanup;}}htb_adjacency_list_clear(&halo);}
+    w->status=HTB_STATUS_COMPLETED;snprintf(w->status_detail,sizeof(w->status_detail),"Completed %d area-weighted random-walk steps.",request->walk.steps);
+cleanup:assign_depths(w);htb_point_location_clear(&location);htb_vec2_clear(&start);if(tiling_ready)htb_tiling_clear(&tiling);htb_arith_ctx_clear(&ctx);
+finish:w->runtime_seconds=now_seconds()-started;result->runtime_seconds=w->runtime_seconds;result->status=w->status;snprintf(result->status_detail,sizeof(result->status_detail),"%s",w->status_detail);struct rusage usage;if(getrusage(RUSAGE_SELF,&usage)==0){
+#ifdef __APPLE__
+      result->peak_memory_kb=(long)(usage.ru_maxrss/1024);
+#else
+      result->peak_memory_kb=(long)usage.ru_maxrss;
+#endif
+    }emit_progress(progress,progress_user,"run_finished",w->completed_steps);return 1;
+}

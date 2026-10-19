@@ -85,13 +85,25 @@ test('one trajectory can stop while the other completes',()=>{
   const q=request('exact',[{id:'A',startU:'0',startV:'0',directionU:'1',directionV:'1',bounces:4},{id:'B',startU:'0',startV:'0',directionU:'1',directionV:'0',bounces:4}]);q.tiling.parameters={centerX:'1/2',centerY:'1/2'};const result=run(q);assert.equal(result.trajectories[0].status,'Vertex collision');assert.equal(result.trajectories[1].status,'Completed');assert.equal(result.trajectories[1].completedBounces,4);
 });
 
-test('schema 2 output preserves the selected tiling and canonical identities',()=>{
+test('schema 3 output preserves the selected tiling and canonical identities',()=>{
   const result=run(request('scientific'));
-  assert.equal(result.schemaVersion,'2.0');
+  assert.equal(result.schemaVersion,'3.0');
   assert.equal(result.tiling.id,'elliptical-square');
   assert.equal(result.tiling.version,'1');
   assert.match(result.trajectories[0].events[0].tileAfter.key,/^elliptical-square:/);
   assert.match(result.trajectories[0].events[0].edgeIdentity.boundaryKey,/^elliptical-square:/);
+});
+test('seeded area-weighted random walks are reproducible and export a one-edge adjacency halo',()=>{
+  const q={runId:'walk-native',simulationType:'randomWalk',tiling:{id:'elliptical-square',version:'1',parameters:{centerX:'0',centerY:'0'}},walk:{startU:'1/10',startV:'-1/5',steps:25,seed:'42',distribution:'euclidean-area-neighborhood'},resources:{memoryLimitMb:512}};
+  const first=run(q),second=run(q),walk=first.walk;
+  assert.equal(first.simulationType,'randomWalk');assert.equal(first.mode,null);assert.equal(walk.status,'Completed');assert.equal(walk.completedSteps,25);assert.equal(walk.steps.length,26);assert.equal(walk.areaMetadata.approximate,true);
+  assert.deepEqual(walk.steps.map(s=>s.tile.key),second.walk.steps.map(s=>s.tile.key));assert.deepEqual(walk.steps.map(s=>s.randomDraw),second.walk.steps.map(s=>s.randomDraw));
+  assert.ok(walk.steps.every(s=>s.tileArea.approx>0&&!s.tileArea.certified));assert.ok(walk.steps.every(s=>s.selectedProbability>0&&s.selectedProbability<=1));
+  const nodes=walk.adjacencyGraph.nodes,edges=walk.adjacencyGraph.edges;for(const node of nodes.filter(n=>n.visited)){const degree=edges.filter(e=>e.source===node.index||e.target===node.index).length;assert.equal(degree,4,node.tile.key)}
+});
+test('order-5 random walks use the same generic adjacency and area interface',()=>{
+  const q={runId:'walk-order5',simulationType:'randomWalk',tiling:{id:'order5-square',version:'1',parameters:{centerU:'0',centerV:'0'}},walk:{startU:'1/10',startV:'-1/5',steps:10,seed:'9',distribution:'euclidean-area-neighborhood'}};
+  const result=run(q);assert.equal(result.walk.status,'Completed');assert.equal(result.walk.steps.length,11);assert.ok(result.walk.steps.every(s=>s.tile.key.startsWith('order5-square:')));
 });
 test('order-5 square provider completes certified disk trajectories with default and moved vertices',()=>{
   for(const parameters of [{centerU:'0',centerV:'0'},{centerU:'1/10',centerV:'-1/5'}]){

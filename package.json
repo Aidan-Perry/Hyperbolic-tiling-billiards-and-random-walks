@@ -1,8 +1,8 @@
 {
   "name": "hyperbolic-tiling-billiards",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "description": "Rigorous Euclidean billiards on selectable curved disk tilings",
+  "description": "Rigorous Euclidean billiards and area-weighted random walks on selectable disk tilings",
   "scripts": {
     "start": "node src/server/server.js",
     "test": "npm run test:integration && npm run test:web",

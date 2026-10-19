@@ -16,7 +16,8 @@
   ],
   "capabilities": {
     "adjacency": true,
-    "diskArea": false,
+    "diskArea": true,
+    "diskAreaMethod": "deterministic sampled geodesic boundary integration",
     "referenceArea": false
   }
 }

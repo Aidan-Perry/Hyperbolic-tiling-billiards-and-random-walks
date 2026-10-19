@@ -1,8 +1,8 @@
 # Hyperbolic Tiling Billiards
 
-Research software for ordinary **Euclidean tiling billiards** on selectable curved tilings of the open unit disk. The installed definitions are the elliptically distorted square grid and the regular order-5 square tiling \(\{4,5\}\). The name describes the disk representation, not the dynamics: trajectories are straight Euclidean segments, and all boundary angles, normals, distances, and refractions are Euclidean. The order-5 provider uses hyperbolic geometry only to construct its fixed tiling boundaries—not to propagate the billiard.
+Research software for ordinary **Euclidean tiling billiards** and seeded, area-weighted **random walks** on selectable curved tilings of the open unit disk. The installed definitions are the elliptically distorted square grid and the regular order-5 square tiling \(\{4,5\}\). The name describes the disk representation, not the billiard dynamics: trajectories are straight Euclidean segments, and all boundary angles, normals, distances, and refractions are Euclidean. The order-5 provider uses hyperbolic geometry only to construct its fixed tiling boundaries—not to propagate the billiard.
 
-The application has a C17/FLINT native engine, a small Node.js process supervisor, and three synchronized p5.js pages. It supports one or two independently initialized trajectories in rigorous Arb **Scientific Computing** mode or Calcium **Exact Algebra** mode.
+The application has a C17/FLINT native engine, a small Node.js process supervisor, and three synchronized p5.js pages. Billiards supports one or two independently initialized trajectories in rigorous Arb **Scientific Computing** mode or Calcium **Exact Algebra** mode. Random walk is a separate native simulation type with its own controls and diagnostics.
 
 ## Mathematics
 
@@ -90,13 +90,15 @@ npm start
 
 Open <http://127.0.0.1:8765>. The launcher opens three separate pages:
 
-- <http://127.0.0.1:8765/disk> — Poincaré disk image and actual straight billiard segments
-- <http://127.0.0.1:8765/plane> — the selected provider's optional secondary representation (the order-5 provider clearly reports that none is defined)
+- <http://127.0.0.1:8765/disk> — Poincaré disk image, actual straight billiard segments, or random-walk tile-center path
+- <http://127.0.0.1:8765/plane> — provider reference representation for billiards, or the numbered adjacency graph for random walk
 - <http://127.0.0.1:8765/diagnostics> — authoritative controls, playback, graphs, event history, uncertainty, and export
 
 If the engine is installed elsewhere, set `HTB_ENGINE` to its absolute path. Set `PORT` to change the local port.
 
 ## Using the controls
+
+The visually separate **Simulation** selector switches between Billiards and Random Walk. Each choice has its own input panels, run labels, diagnostics, event history, graphs, and secondary visualization. Changing the selection while a result is displayed requires a reset, like any other mathematical input.
 
 Coordinate and angle fields accept exact integers, terminating decimals, and fractions such as `-17/64`. Strings are parsed directly into FLINT rationals; they never pass through JavaScript binary floating point before native computation.
 
@@ -114,6 +116,22 @@ Enable Trajectory B for an independent blue trajectory. Both trajectories share 
 
 Inputs lock as soon as a run starts. **Reset Trajectory** cancels an active subprocess if necessary, clears run-specific data, unlocks inputs, and preserves current field values. Green arrows are presentation-only Euclidean unit-direction indicators and disappear while a run is active or displayed.
 
+## Random walks
+
+Random walk accepts an interior disk point, a nonnegative 64-bit integer seed, and a number of steps. The native tiling provider locates the starting tile. At every step the candidate set consists of the current tile together with every tile sharing a positive-length edge with it; vertex-only contacts are excluded. For the installed distribution,
+
+\[
+\Pr(T\to S)=\frac{\operatorname{area}_{\mathbb D}(S)}{\sum_{R\in\{T\}\cup N(T)}\operatorname{area}_{\mathbb D}(R)}.
+\]
+
+Including \(T\) itself means that a step can stay in the current tile. Such stays are recorded explicitly rather than discarded. The seed drives a fixed native SplitMix64 generator, so the same application version, tiling parameters, distribution, starting point, step count, and seed reproduce the same itinerary.
+
+This mode intentionally has no Arb/Calcium selector. Tile location still begins from exact rational text and uses certified native geometry, but transition weights are numerical Euclidean disk-area estimates supplied by each tiling provider. The result labels those areas and their refinement-difference error estimates as approximate; they are not certified balls and are never used for billiard decisions.
+
+The disk window joins successive tile centers with a red line. The secondary window displays the canonical adjacency graph: gray edges are tile adjacencies, red edges are traversed transitions, node/edge labels record step indices, and the exported graph includes every visited tile plus its complete one-edge neighbor halo. Playback synchronizes the selected step across both views.
+
+Random-walk diagnostics include center displacement, unique tiles, cumulative center-to-center path length, current tile area, selected transition probability, repeat count, stay count, and a complete step table. JSON and CSV exports include the seed, draws, probabilities, approximate area metadata, canonical tile identities, and adjacency graph.
+
 ## Arithmetic modes
 
 ### Scientific Computing
@@ -130,7 +148,7 @@ Each enabled trajectory owns an independent mutable arithmetic context.
 
 The native result records every certified event: disk and provider-reference coordinates when available, canonical before/after tile keys, canonical boundary key, crossed-edge label, incoming/outgoing direction, collision-time enclosure, precision, displacement, cumulative Euclidean disk path length, and endpoint clearance where supported. Unique visits use opaque provider-owned tile identities rather than inferred coordinates. Exact periodicity requires a repeated exact crossing state; an Arb proximity label is explicitly not a proof.
 
-The diagnostics page offers full JSON, per-bounce diagnostics CSV, and crossing-state CSV. Rounded `approx` values are presentation values. `display` and `enclosure` fields preserve the distinction between display conversion and the authoritative native state.
+The diagnostics page offers full JSON and mode-appropriate CSV data: per-bounce/crossing exports for billiards or per-step exports for random walk. Rounded `approx` values are presentation values. `display` and `enclosure` fields preserve the distinction between display conversion and the authoritative native state.
 
 ## Benchmarks
 
@@ -160,9 +178,10 @@ The server permits one active native run (containing up to two trajectories), im
 - The order-5 provider has no global Euclidean reference-plane representation. Its disk results, topology, diagnostics, and exports are complete, while reference-space graphs and the reference page are explicitly unavailable.
 - Exact order-5 trajectories can accumulate algebraic complexity rapidly. Short rational-direction runs are practical; long generic runs may require cancellation even though no mathematical approximation fallback occurs.
 - Memory enforcement is portable and cooperative; the native memory limit is checked against measured resident usage. Long exact computations have no automatic wall-clock deadline and must be cancelled explicitly when no longer wanted.
+- Random-walk disk areas are deterministic numerical estimates rather than Arb-certified measures. The two providers expose an estimated quadrature/sampling error, and exports state `certified: false`.
 
 ## Extending the engine
 
 The generic geometry layer calls only the scalar abstraction in `include/htb/arithmetic.h`; FLINT calls are isolated in `src/native/arithmetic`. A replacement backend implements initialization, exact-rational parsing, field operations, square root, comparison, finiteness, and display/enclosure conversion. Unresolved comparison must remain a first-class outcome.
 
-Additional curved tilings implement the contract in `include/htb/tiling.h`: opaque tile identity, finite-edge enumeration and analytic intersections, normals, adjacency, optional reference maps, vertices, and measurements. Add a manifest and a presentation-only browser renderer. `htb_tiling_neighbors` exposes adjacency independently of billiards for future random-walk runners, while the measurement operation provides a home for area-weighted policies. Do not duplicate the trajectory runner or arithmetic backends, and do not put authoritative collision logic in the browser.
+Additional curved tilings implement the contract in `include/htb/tiling.h`: opaque tile identity, finite-edge enumeration and analytic intersections, normals, adjacency, tile centers, approximate disk area, optional reference maps, vertices, and measurements. Add a manifest and a presentation-only browser renderer. `htb_tiling_neighbors` drives both billiard transitions and generic random walks; `tile_center` and `disk_area_approx` make the stochastic runner independent of any particular tiling. Do not duplicate either simulation runner or put authoritative state transitions in the browser.

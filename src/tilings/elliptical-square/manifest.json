@@ -17,7 +17,8 @@
   ],
   "capabilities": {
     "adjacency": true,
-    "diskArea": false,
+    "diskArea": true,
+    "diskAreaMethod": "deterministic Gauss-Legendre quadrature",
     "referenceArea": true,
     "referenceAreaValue": "1"
   }

@@ -183,6 +183,18 @@ static int from_reference(const htb_tiling*t,const htb_vec2*r,htb_vec2*d,char*e,
 static int tile_measure(const htb_tiling*t,const htb_tile_id*tile,htb_measure_kind kind,htb_scalar*measure,char*error,size_t error_size){
     (void)t;(void)tile;if(kind==HTB_MEASURE_REFERENCE_EUCLIDEAN_AREA)return htb_scalar_set_si(measure,1);snprintf(error,error_size,"requested tile measure is not implemented by elliptical-square@1");return 0;
 }
+static int tile_center(const htb_tiling*t,const htb_tile_id*tile,htb_vec2*center,char*error,size_t error_size){
+    (void)error;(void)error_size;htb_vec2 plane;htb_vec2_init(t->arith,&plane);htb_scalar half;htb_scalar_init(t->arith,&half);char parse_error[32]={0};int ok=htb_scalar_parse_rational(&half,"1/2",parse_error,sizeof(parse_error))&&htb_scalar_set_si(&plane.x,tile_i(tile))&&htb_scalar_add(&plane.x,&plane.x,&half)&&htb_scalar_set_si(&plane.y,tile_j(tile))&&htb_scalar_add(&plane.y,&plane.y,&half)&&forward_map(t,&plane,center);htb_scalar_clear(&half);htb_vec2_clear(&plane);return ok;
+}
+static double area_gauss(const es_state*s,const htb_tile_id*tile,const double*nodes,const double*weights,int count,int subdivisions){
+    double cx=htb_scalar_get_approx(&s->center.x),cy=htb_scalar_get_approx(&s->center.y),half=.5/subdivisions,total=0;
+    for(int sx=0;sx<subdivisions;sx++)for(int sy=0;sy<subdivisions;sy++){double mx=(double)tile_i(tile)+(sx+.5)/subdivisions,my=(double)tile_j(tile)+(sy+.5)/subdivisions;for(int i=0;i<count;i++)for(int j=0;j<count;j++){double x=mx+half*nodes[i]-cx,y=my+half*nodes[j]-cy,d=1+x*x+y*y;total+=weights[i]*weights[j]/(d*d);}}return half*half*total;
+}
+static int disk_area_approx(const htb_tiling*t,const htb_tile_id*tile,double*area,double*estimated_error,char*error,size_t error_size){
+    static const double n4[]={-.8611363115940526,-.3399810435848563,.3399810435848563,.8611363115940526};
+    static const double w4[]={.3478548451374539,.6521451548625461,.6521451548625461,.3478548451374539};
+    const es_state*s=t->state;double hi=area_gauss(s,tile,n4,w4,4,4),lo=area_gauss(s,tile,n4,w4,4,2);if(!isfinite(hi)||hi<=0){snprintf(error,error_size,"could not numerically evaluate disk area for tile %s",tile->label);return 0;}*area=hi;*estimated_error=fabs(hi-lo);return 1;
+}
 
 static const htb_parameter_spec parameters[]={
     {"centerX","Tiling center c_x",HTB_PARAM_SCALAR,"0","Horizontal placement of the source square grid."},
@@ -196,5 +208,6 @@ const htb_tiling_definition htb_elliptical_square_definition={
     .reference_id="square-grid",.reference_name="Euclidean Square Grid",.tile_types=tile_types,.tile_type_count=1,.parameters=parameters,.parameter_count=2,
     .ops={.initialize=initialize,.clear=clear_tiling,.locate_point=locate_point,.enumerate_edges=enumerate_edges,
       .intersections=intersections,.normal_at=normal_at,.adjacent=adjacent,.edge_vertices=edge_vertices,
-      .to_reference=to_reference,.from_reference=from_reference,.tile_measure=tile_measure}
+      .to_reference=to_reference,.from_reference=from_reference,.tile_measure=tile_measure,
+      .tile_center=tile_center,.disk_area_approx=disk_area_approx}
 };

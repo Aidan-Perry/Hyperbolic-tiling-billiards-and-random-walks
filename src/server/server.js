@@ -39,7 +39,8 @@ function readBody(req) {
 const scalarPattern = /^[+-]?(?:\d+|\d+\.\d+|\d+\/\d+)$/;
 function validateRequest(body) {
   if (!body || typeof body !== 'object') throw new Error('request must be an object');
-  if (!['scientific','exact'].includes(body.mode)) throw new Error('invalid computation mode');
+  const simulationType=body.simulationType||'billiards';if(!['billiards','randomWalk'].includes(simulationType))throw new Error('invalid simulation type');
+  if (simulationType==='billiards'&&!['scientific','exact'].includes(body.mode)) throw new Error('invalid computation mode');
   let scalars=[];
   if(body.tiling!==undefined){
     if(!body.tiling||typeof body.tiling!=='object')throw new Error('tiling must be an object');
@@ -50,11 +51,13 @@ function validateRequest(body) {
     for(const id of Object.keys(parameters))if(!knownParameters.has(id))throw new Error(`unknown parameter ${id} for tiling ${definition.id}`);
     for(const spec of definition.parameters){const value=parameters[spec.id]??spec.default;if(spec.type==='scalar')scalars.push(value)}
   }else scalars=[body.center?.x,body.center?.y];
-  if (!Array.isArray(body.trajectories) || body.trajectories.length < 1 || body.trajectories.length > 2) throw new Error('one or two trajectories are required');
-  body.trajectories.forEach((t,i) => { if(t.id !== (i ? 'B':'A')) throw new Error('trajectory identifiers must be A and then B'); scalars.push(t.startU,t.startV);if(typeof t.angleDegrees==='string')scalars.push(t.angleDegrees);else scalars.push(t.directionU,t.directionV);if(!Number.isInteger(t.bounces)||t.bounces<0||t.bounces>2000)throw new Error('bounce count must be between 0 and 2000'); });
+  if(simulationType==='randomWalk'){const w=body.walk;if(!w||typeof w!=='object')throw new Error('walk configuration is required');if(w.distribution!=='euclidean-area-neighborhood')throw new Error('unsupported random-walk distribution');if(!Number.isInteger(w.steps)||w.steps<0||w.steps>2000)throw new Error('step count must be between 0 and 2000');if(typeof w.seed!=='string'||!/^(?:0|[1-9]\d*)$/.test(w.seed)||w.seed.length>20)throw new Error('seed must be an unsigned 64-bit integer string');if(BigInt(w.seed)>18446744073709551615n)throw new Error('seed must fit in an unsigned 64-bit integer');scalars.push(w.startU,w.startV)}else{
+    if (!Array.isArray(body.trajectories) || body.trajectories.length < 1 || body.trajectories.length > 2) throw new Error('one or two trajectories are required');
+    body.trajectories.forEach((t,i) => { if(t.id !== (i ? 'B':'A')) throw new Error('trajectory identifiers must be A and then B'); scalars.push(t.startU,t.startV);if(typeof t.angleDegrees==='string')scalars.push(t.angleDegrees);else scalars.push(t.directionU,t.directionV);if(!Number.isInteger(t.bounces)||t.bounces<0||t.bounces>2000)throw new Error('bounce count must be between 0 and 2000'); });
+  }
   scalars.forEach(value => { if(typeof value !== 'string'||value.length>150||!scalarPattern.test(value))throw new Error(`invalid exact rational input: ${String(value)}`); });
-  const r=body.resources||{}; if(r.initialPrecision!==undefined&&(!Number.isInteger(r.initialPrecision)||r.initialPrecision<32||r.initialPrecision>65536))throw new Error('invalid initial precision');
-  if(r.maxPrecision!==undefined&&(!Number.isInteger(r.maxPrecision)||r.maxPrecision<32||r.maxPrecision>65536))throw new Error('invalid maximum precision');
+  const r=body.resources||{}; if(simulationType==='billiards'&&r.initialPrecision!==undefined&&(!Number.isInteger(r.initialPrecision)||r.initialPrecision<32||r.initialPrecision>65536))throw new Error('invalid initial precision');
+  if(simulationType==='billiards'&&r.maxPrecision!==undefined&&(!Number.isInteger(r.maxPrecision)||r.maxPrecision<32||r.maxPrecision>65536))throw new Error('invalid maximum precision');
 }
 function appendProgress(event, runId) {
   if(state.runId !== runId) return;
@@ -62,7 +65,7 @@ function appendProgress(event, runId) {
     state.result=event;
     state.status=event.status;
     state.error=null;
-    state.selectedBounce=Math.max(0,...(event.trajectories||[]).map(trajectory=>Math.max(0,(trajectory.events||[]).length-1)));
+    state.selectedBounce=event.simulationType==='randomWalk'?Math.max(0,(event.walk?.steps||[]).length-1):Math.max(0,...(event.trajectories||[]).map(trajectory=>Math.max(0,(trajectory.events||[]).length-1)));
   }
   else { state.progress.push({...event, receivedAt:new Date().toISOString()}); if(state.progress.length>1000)state.progress.shift(); }
   touch();
@@ -84,9 +87,9 @@ function startRun(body) {
 }
 function scalarApprox(s){return s?.approx ?? ''}
 function csvEscape(value){const s=String(value??'');return /[",\n]/.test(s)?`"${s.replaceAll('"','""')}"`:s}
-function runMeta(result){return[result?.runId,result?.mode,result?.tiling?.id,result?.tiling?.version,JSON.stringify(result?.tiling?.parameters||{}),result?.status,result?.applicationVersion]}
-function diagnosticsCsv(result){let rows=[['run_id','backend','tiling_id','tiling_version','tiling_parameters','run_status','application_version','trajectory','bounce','disk_displacement_approx','reference_displacement_approx','path_length_approx','disk_clearance_approx','reference_clearance_approx','tile_key','tile_label','edge','boundary_key','precision','certification']];for(const t of result?.trajectories||[])for(const e of t.events||[])rows.push([...runMeta(result),t.id,e.index,scalarApprox(e.diskDisplacement),scalarApprox(e.referenceDisplacement),scalarApprox(e.pathLength),scalarApprox(e.diskClearance),scalarApprox(e.referenceClearance),e.tileAfter?.key,e.tileAfter?.label,e.edge,e.edgeIdentity?.boundaryKey,e.precision,e.certification]);return rows.map(r=>r.map(csvEscape).join(',')).join('\n')+'\n'}
-function crossingsCsv(result){let rows=[['run_id','backend','tiling_id','tiling_version','tiling_parameters','run_status','application_version','trajectory','bounce','disk_u_approx','disk_v_approx','reference_x_approx','reference_y_approx','before_tile_key','after_tile_key','edge','boundary_key','incoming_du_approx','incoming_dv_approx','outgoing_du_approx','outgoing_dv_approx','time_enclosure','certification']];for(const t of result?.trajectories||[])for(const e of t.events||[])rows.push([...runMeta(result),t.id,e.index,scalarApprox(e.disk?.u),scalarApprox(e.disk?.v),scalarApprox(e.reference?.x),scalarApprox(e.reference?.y),e.tileBefore?.key,e.tileAfter?.key,e.edge,e.edgeIdentity?.boundaryKey,scalarApprox(e.incoming?.du),scalarApprox(e.incoming?.dv),scalarApprox(e.outgoing?.du),scalarApprox(e.outgoing?.dv),e.collisionTime?.enclosure,e.certification]);return rows.map(r=>r.map(csvEscape).join(',')).join('\n')+'\n'}
+function runMeta(result){return[result?.runId,result?.simulationType||'billiards',result?.mode,result?.tiling?.id,result?.tiling?.version,JSON.stringify(result?.tiling?.parameters||{}),result?.status,result?.applicationVersion]}
+function diagnosticsCsv(result){if(result?.simulationType==='randomWalk'){let rows=[['run_id','simulation_type','backend','tiling_id','tiling_version','tiling_parameters','run_status','application_version','step','tile_key','tile_label','center_u','center_v','tile_area_approx','tile_area_estimated_error','selected_probability','random_draw','stayed','disk_displacement','cumulative_center_length','unique_tiles','repeated_visits']];for(const s of result.walk?.steps||[])rows.push([...runMeta(result),s.index,s.tile?.key,s.tile?.label,s.center?.u,s.center?.v,s.tileArea?.approx,s.tileArea?.estimatedError,s.selectedProbability,s.randomDraw,s.stayed,s.diskDisplacement,s.cumulativeLength,s.uniqueTiles,s.repeatedVisits]);return rows.map(r=>r.map(csvEscape).join(',')).join('\n')+'\n'}let rows=[['run_id','simulation_type','backend','tiling_id','tiling_version','tiling_parameters','run_status','application_version','trajectory','bounce','disk_displacement_approx','reference_displacement_approx','path_length_approx','disk_clearance_approx','reference_clearance_approx','tile_key','tile_label','edge','boundary_key','precision','certification']];for(const t of result?.trajectories||[])for(const e of t.events||[])rows.push([...runMeta(result),t.id,e.index,scalarApprox(e.diskDisplacement),scalarApprox(e.referenceDisplacement),scalarApprox(e.pathLength),scalarApprox(e.diskClearance),scalarApprox(e.referenceClearance),e.tileAfter?.key,e.tileAfter?.label,e.edge,e.edgeIdentity?.boundaryKey,e.precision,e.certification]);return rows.map(r=>r.map(csvEscape).join(',')).join('\n')+'\n'}
+function crossingsCsv(result){if(result?.simulationType==='randomWalk')return diagnosticsCsv(result);let rows=[['run_id','simulation_type','backend','tiling_id','tiling_version','tiling_parameters','run_status','application_version','trajectory','bounce','disk_u_approx','disk_v_approx','reference_x_approx','reference_y_approx','before_tile_key','after_tile_key','edge','boundary_key','incoming_du_approx','incoming_dv_approx','outgoing_du_approx','outgoing_dv_approx','time_enclosure','certification']];for(const t of result?.trajectories||[])for(const e of t.events||[])rows.push([...runMeta(result),t.id,e.index,scalarApprox(e.disk?.u),scalarApprox(e.disk?.v),scalarApprox(e.reference?.x),scalarApprox(e.reference?.y),e.tileBefore?.key,e.tileAfter?.key,e.edge,e.edgeIdentity?.boundaryKey,scalarApprox(e.incoming?.du),scalarApprox(e.incoming?.dv),scalarApprox(e.outgoing?.du),scalarApprox(e.outgoing?.dv),e.collisionTime?.enclosure,e.certification]);return rows.map(r=>r.map(csvEscape).join(',')).join('\n')+'\n'}
 function serveFile(res,file,mime){fs.readFile(file,(err,data)=>{if(err){res.writeHead(404);res.end('Not found');return}res.writeHead(200,{'content-type':mime,'cache-control':'no-cache'});res.end(data)});}
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
 
