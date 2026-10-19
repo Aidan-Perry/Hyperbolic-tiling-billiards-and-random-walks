@@ -93,3 +93,17 @@ test('schema 2 output preserves the selected tiling and canonical identities',()
   assert.match(result.trajectories[0].events[0].tileAfter.key,/^elliptical-square:/);
   assert.match(result.trajectories[0].events[0].edgeIdentity.boundaryKey,/^elliptical-square:/);
 });
+test('order-5 square provider completes certified disk trajectories with default and moved vertices',()=>{
+  for(const parameters of [{centerU:'0',centerV:'0'},{centerU:'1/10',centerV:'-1/5'}]){
+    const q=request('scientific',[{id:'A',startU:'1/5',startV:'-1/10',directionU:'1',directionV:'1/3',bounces:10}]);q.tiling={id:'order5-square',version:'1',parameters};
+    const result=run(q),trajectory=result.trajectories[0];assert.equal(trajectory.status,'Completed');assert.equal(trajectory.completedBounces,10);assert.equal(trajectory.events.length,11);assert.equal(result.tiling.representations.length,1);assert.ok(trajectory.events.every(e=>e.certification==='certified'));assert.ok(trajectory.events.every(e=>e.tileAfter.key.startsWith('order5-square:')));
+  }
+});
+test('order-5 square intersections also run through Exact Algebra without approximation fallback',()=>{
+  const q=request('exact',[{id:'A',startU:'1/10',startV:'1/10',directionU:'1',directionV:'1/3',bounces:1}]);q.tiling={id:'order5-square',version:'1',parameters:{centerU:'0',centerV:'0'}};q.resources.maxPrecision=512;
+  const result=run(q),trajectory=result.trajectories[0];assert.equal(trajectory.status,'Completed');assert.equal(trajectory.events.length,2);assert.equal(result.mode,'exact');assert.ok(trajectory.events.every(e=>e.certification==='certified'));
+});
+test('order-5 distinguished vertex launch is classified explicitly in Scientific Computing',()=>{
+  const q=request('scientific',[{id:'A',startU:'0',startV:'0',directionU:'1',directionV:'1/3',bounces:1}]);q.tiling={id:'order5-square',version:'1',parameters:{centerU:'0',centerV:'0'}};q.resources.maxPrecision=1024;
+  const trajectory=run(q).trajectories[0];assert.equal(trajectory.status,'Invalid input');assert.match(trajectory.statusDetail,/tiling vertex/);assert.match(trajectory.statusDetail,/initial tile is ambiguous/);
+});

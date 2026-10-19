@@ -1,0 +1,22 @@
+{
+  "id": "order5-square",
+  "version": "1",
+  "name": "Order-5 Square Tiling {4,5}",
+  "description": "The regular Poincaré-disk tiling by hyperbolic squares, with five squares meeting at every vertex. Billiard motion remains Euclidean in disk coordinates.",
+  "tileTypes": [
+    {"id": "square", "name": "Regular hyperbolic square", "sideCount": 4}
+  ],
+  "topology": {"vertexValence": 5, "infinite": true},
+  "representations": [
+    {"id": "disk", "name": "Poincaré Disk", "authoritative": true}
+  ],
+  "parameters": [
+    {"id": "centerU", "label": "Central vertex u", "type": "scalar", "default": "0"},
+    {"id": "centerV", "label": "Central vertex v", "type": "scalar", "default": "0"}
+  ],
+  "capabilities": {
+    "adjacency": true,
+    "diskArea": false,
+    "referenceArea": false
+  }
+}

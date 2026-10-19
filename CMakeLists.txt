@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(hyperbolic_tiling_billiards VERSION 0.2.0 LANGUAGES C)
+project(hyperbolic_tiling_billiards VERSION 0.3.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -17,6 +17,7 @@ add_library(htb_core
   src/native/geometry/geometry.c
   src/native/tilings/registry.c
   src/native/tilings/elliptical_square.c
+  src/native/tilings/order5_square.c
   src/native/billiards/engine.c
   src/native/io/json_io.c
 )

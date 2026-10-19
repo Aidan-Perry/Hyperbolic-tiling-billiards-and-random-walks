@@ -6,7 +6,7 @@ The application is organized around two independent kinds of replaceability: an 
 
 1. `src/native/arithmetic` owns FLINT-specific values and contexts. Arb and Calcium expose the same operations and explicit unresolved comparisons.
 2. `src/native/geometry` contains only tiling-independent vector operations, ray evaluation, disk containment, Euclidean distance, and negative refraction. It does not know that a tile is a square.
-3. `src/native/tilings` is the provider registry. A provider owns point location, tile and boundary identities, edge enumeration, analytic intersections, normals, adjacency, optional reference maps, vertices, and tile measurements. `elliptical_square.c` is the only installed provider today.
+3. `src/native/tilings` is the provider registry. A provider owns point location, tile and boundary identities, edge enumeration, analytic intersections, normals, adjacency, optional reference maps, vertices, and tile measurements. `elliptical_square.c` implements the radial grid image; `order5_square.c` implements the regular \(\{4,5\}\) reflection tiling.
 4. `src/native/billiards` asks the selected provider for candidate crossings, certifies their ordering through the selected arithmetic backend, applies the generic negative-refraction operation, follows the provider's adjacency result, and records diagnostics. It never derives a neighboring tile by modifying grid coordinates.
 5. `src/native/io` validates versioned tiling configurations and serializes opaque canonical tile/boundary identities. Coordinate arrays are provider metadata, not the engine's identity scheme.
 
@@ -51,4 +51,4 @@ Cancel and reset send `SIGTERM` to the current child and escalate to `SIGKILL` a
 
 ## Rendering boundary
 
-The current disk renderer samples provider-defined grid-line parameterizations solely for display. The reference renderer samples the provider's inverse image of each already computed disk segment. Both use JavaScript numbers because screen coordinates are presentation values; neither result enters the native simulation.
+Disk renderers sample provider-defined curves solely for display. When a provider exposes a reference representation, the reference renderer samples the provider's inverse image of each already computed disk segment. Providers without such a representation produce a clear unavailable state. Browser drawing uses JavaScript numbers because screen coordinates are presentation values; none of it enters the native simulation.

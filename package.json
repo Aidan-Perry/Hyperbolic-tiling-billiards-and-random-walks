@@ -1,8 +1,8 @@
 {
   "name": "hyperbolic-tiling-billiards",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Rigorous Euclidean tiling billiards on an elliptically distorted square tiling",
+  "description": "Rigorous Euclidean billiards on selectable curved disk tilings",
   "scripts": {
     "start": "node src/server/server.js",
     "test": "npm run test:integration && npm run test:web",

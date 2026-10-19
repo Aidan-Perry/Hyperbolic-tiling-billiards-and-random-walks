@@ -2,9 +2,8 @@
   const renderers = new Map();
 
   function register(renderer) {
-    if (!renderer?.id || typeof renderer.drawDiskGrid !== 'function' ||
-        typeof renderer.drawReferenceGrid !== 'function' || typeof renderer.inverse !== 'function') {
-      throw new Error('A tiling renderer must provide id, drawDiskGrid, drawReferenceGrid, and inverse.');
+    if (!renderer?.id || typeof renderer.drawDiskGrid !== 'function') {
+      throw new Error('A tiling renderer must provide an id and drawDiskGrid function.');
     }
     if (renderers.has(renderer.id)) throw new Error(`Duplicate tiling renderer: ${renderer.id}`);
     renderers.set(renderer.id, Object.freeze(renderer));
@@ -21,7 +20,8 @@
   function get(source) {
     const config=configuration(source), renderer=renderers.get(config.id);
     if (!renderer) throw new Error(`No browser renderer is installed for tiling ${config.id}.`);
-    return {renderer, config};
+    return {renderer, config, hasReference:
+      typeof renderer.drawReferenceGrid === 'function' && typeof renderer.inverse === 'function'};
   }
 
   window.HTBTilings={register,get,configuration,list:()=>[...renderers.keys()]};

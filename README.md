@@ -1,6 +1,6 @@
 # Hyperbolic Tiling Billiards
 
-Research software for ordinary **Euclidean tiling billiards** on selectable curved tilings of the open unit disk. The currently installed definition is the elliptically distorted square grid described below. The name describes the disk representation, not the dynamics: trajectories are straight Euclidean segments, boundary angles and normals are Euclidean, and no hyperbolic metric or hyperbolic geodesic is used.
+Research software for ordinary **Euclidean tiling billiards** on selectable curved tilings of the open unit disk. The installed definitions are the elliptically distorted square grid and the regular order-5 square tiling \(\{4,5\}\). The name describes the disk representation, not the dynamics: trajectories are straight Euclidean segments, and all boundary angles, normals, distances, and refractions are Euclidean. The order-5 provider uses hyperbolic geometry only to construct its fixed tiling boundaries—not to propagate the billiard.
 
 The application has a C17/FLINT native engine, a small Node.js process supervisor, and three synchronized p5.js pages. It supports one or two independently initialized trajectories in rigorous Arb **Scientific Computing** mode or Calcium **Exact Algebra** mode.
 
@@ -35,6 +35,12 @@ V_{\mathrm{out}}=2\frac{V_{\mathrm{in}}\cdot N}{N\cdot N}N-V_{\mathrm{in}},
 with (N_x=(1-v^2,uv)) or (N_y=(uv,1-u^2)). This preserves the normal component and negates the tangential component; it is **not** ordinary specular reflection.
 
 See [Mathematical reference](docs/mathematics.md), [Architecture](docs/architecture.md), and [Tiling providers](docs/tiling-providers.md) for implementation details.
+
+### Order-5 square tiling
+
+The `order5-square@1` provider constructs the regular Poincaré-disk tessellation \(\{4,5\}\): every tile has four geodesic sides and exactly five tiles meet at every vertex. It uses the reflection triangle group \(\Delta(2,4,5)\) for exact topology and adjacency. The distinguished vertex defaults to \((0,0)\), and its disk coordinates are configurable as exact rational `centerU` and `centerV` parameters. This placement is a disk isometry of the same tiling.
+
+Although these tile edges are Poincaré geodesics, collision detection treats each as its exact Euclidean circle or diameter. Between crossings, the particle still follows a straight Euclidean chord and uses the same Euclidean negative-refraction formula shown above.
 
 ## Dependencies
 
@@ -85,7 +91,7 @@ npm start
 Open <http://127.0.0.1:8765>. The launcher opens three separate pages:
 
 - <http://127.0.0.1:8765/disk> — Poincaré disk image and actual straight billiard segments
-- <http://127.0.0.1:8765/plane> — ordinary square grid and the inverse-transformed curved path
+- <http://127.0.0.1:8765/plane> — the selected provider's optional secondary representation (the order-5 provider clearly reports that none is defined)
 - <http://127.0.0.1:8765/diagnostics> — authoritative controls, playback, graphs, event history, uncertainty, and export
 
 If the engine is installed elsewhere, set `HTB_ENGINE` to its absolute path. Set `PORT` to change the local port.
@@ -94,7 +100,7 @@ If the engine is installed elsewhere, set `HTB_ENGINE` to its absolute path. Set
 
 Coordinate and angle fields accept exact integers, terminating decimals, and fractions such as `-17/64`. Strings are parsed directly into FLINT rationals; they never pass through JavaScript binary floating point before native computation.
 
-The tiling selector is populated from the server's installed provider manifests. It presently contains **Elliptically Distorted Square Grid** only. Selecting a tiling chooses a versioned native geometry/topology provider and its provider-specific parameters; it is not a cosmetic rendering choice.
+The tiling selector is populated from the server's installed provider manifests. It contains **Elliptically Distorted Square Grid** and **Order-5 Square Tiling {4,5}**. Selecting a tiling chooses a versioned native geometry/topology provider and its provider-specific parameters; it is not a cosmetic rendering choice.
 
 The launch point must lie strictly inside the disk. Initial direction is entered in ordinary Euclidean degrees: (0^\circ) points along (+u), (90^\circ) along (+v), and positive angles turn counterclockwise. The native arithmetic backend evaluates the unit direction ((\cos(\pi\theta/180),\sin(\pi\theta/180))); browser trigonometry is used only for the green preview. Arb produces rigorous enclosures and Calcium retains the exact algebraic values for rational degree inputs.
 
@@ -151,6 +157,8 @@ The server permits one active native run (containing up to two trajectories), im
 - The browser's A–B head-separation plot currently uses the centers of the native certified display enclosures. It is labeled as a presentation comparison and is not an exact or certified separation claim. Collision decisions never use it.
 - Browser drawing uses polygonal sampling, including adaptive-looking dense inverse-map samples; drawing never feeds back into collision calculations.
 - The visible disk grid is a finite selection of mathematically infinite grid lines. The native trajectory has no corresponding rendering boundary.
+- The order-5 provider has no global Euclidean reference-plane representation. Its disk results, topology, diagnostics, and exports are complete, while reference-space graphs and the reference page are explicitly unavailable.
+- Exact order-5 trajectories can accumulate algebraic complexity rapidly. Short rational-direction runs are practical; long generic runs may require cancellation even though no mathematical approximation fallback occurs.
 - Memory enforcement is portable and cooperative; the native memory limit is checked against measured resident usage. Long exact computations have no automatic wall-clock deadline and must be cancelled explicitly when no longer wanted.
 
 ## Extending the engine

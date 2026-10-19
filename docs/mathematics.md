@@ -1,6 +1,6 @@
 # Mathematical reference
 
-## Coordinate spaces
+## Elliptically distorted square grid
 
 Disk space ((u,v)) is an ordinary Euclidean subset of \(\mathbb R^2\). Square-grid space ((x,y)) supplies tile identities and a second representation. The map (F_c\) is a smooth bijection from the plane to the open disk. Thus four image tiles meet at every mapped integer-grid vertex, exactly as in the source grid.
 
@@ -46,3 +46,30 @@ L(n)=\sum_{k=1}^n\|P_k-P_{k-1}\|_2.
 
 All of these are Euclidean quantities.
 
+## Regular order-5 square tiling \(\{4,5\}\)
+
+The second provider uses the Coxeter/Wythoff reflection construction for the triangle group \(\Delta(2,4,5)\). Its exact group data lives in
+
+\[
+\mathbb Q(\sqrt2,\sqrt\varphi),\qquad \varphi=\frac{1+\sqrt5}{2}.
+\]
+
+Four reflected copies of one side bound the base square, and reflecting the square across each side recursively produces the infinite tessellation. Exact group coordinates identify coincident tiles and boundaries, so the adjacency structure does not depend on a screen-space tolerance. A test walks around the configurable central vertex and verifies that the fifth edge transition returns to the starting tile.
+
+In hyperboloid coordinates, an edge plane has normal \(n=(n_t,n_x,n_y)\). Its Poincaré-disk image satisfies
+
+\[
+n_t(1+u^2+v^2)-2n_xu-2n_yv=0.
+\]
+
+This is a Euclidean circle orthogonal to the unit circle when \(n_t\ne0\), and a diameter when \(n_t=0\). Substituting \(P+tV\) gives a polynomial of degree at most two, so collisions are analytic rather than polyline based. The ordinary Euclidean disk normal used for billiards is proportional to
+
+\[
+(n_tu-n_x,\;n_tv-n_y).
+\]
+
+The reflection-group and Poincaré machinery construct the tiling only. The moving particle is not a hyperbolic geodesic: it follows straight Euclidean disk segments and applies the same Euclidean negative-refraction rule as every other provider.
+
+The placement transform sends a distinguished tiling vertex to the exact rational parameter pair `centerU`, `centerV`. This changes only the disk placement, not the \(\{4,5\}\) incidence structure.
+
+The construction follows the standard reflection/Wythoff description of regular hyperbolic tilings; useful background appears in the [PRX Quantum discussion of triangle-group tilings](https://journals.aps.org/prxquantum/abstract/10.1103/PRXQuantum.5.040327) and the [Clark University Poincaré tiling reference](https://mathcs.clarku.edu/~djoyce/poincare/index.html). The formulas implemented here are stated above so a run does not depend on either external site.

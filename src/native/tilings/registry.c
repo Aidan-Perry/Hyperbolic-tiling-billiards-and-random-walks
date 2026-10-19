@@ -5,7 +5,8 @@
 #include <string.h>
 
 static const htb_tiling_definition *definitions[] = {
-    &htb_elliptical_square_definition
+    &htb_elliptical_square_definition,
+    &htb_order5_square_definition
 };
 
 void htb_tile_id_clear(htb_tile_id *tile) { memset(tile, 0, sizeof(*tile)); }

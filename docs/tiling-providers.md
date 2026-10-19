@@ -20,7 +20,7 @@ Tile identity is an opaque `htb_tile_id`. Its canonical `key` must be stable and
 
 Boundary identity follows the same rule. The `boundary_key` identifies the same geometric boundary from either adjacent tile; `local_index` is only meaningful to its provider. This is how the engine detects a true shared-vertex event without assuming names such as `left` or `top`.
 
-`htb_tiling_neighbors` is the first-class adjacency lookup. It enumerates the tile's edges and resolves each neighbor through the provider. The lookup is independent of billiard propagation, so a future random-walk runner can use it directly. `tile_measure` already distinguishes disk Euclidean area, reference-space Euclidean area, and disk perimeter; a random-walk policy can request a supported measure and normalize its own probability distribution. The current provider reports reference area exactly as 1 and honestly reports disk area as unsupported.
+`htb_tiling_neighbors` is the first-class adjacency lookup. It enumerates the tile's edges and resolves each neighbor through the provider. The lookup is independent of billiard propagation, so a future random-walk runner can use it directly. `tile_measure` already distinguishes disk Euclidean area, reference-space Euclidean area, and disk perimeter; a random-walk policy can request a supported measure and normalize its own probability distribution. The elliptical provider reports reference area exactly as 1. Both providers currently report disk area as unsupported.
 
 ## Metadata manifest
 
@@ -37,10 +37,14 @@ The server publishes these manifests at `/api/tilings`; the diagnostics UI is ge
 
 ## Browser renderer
 
-Register the corresponding presentation module in `src/web/tilings`. It supplies `drawDiskGrid`, `drawReferenceGrid`, and the disk-to-reference display transform. Add its script to the two geometry pages. These functions are deliberately non-authoritative: the native provider remains the sole source of tile crossings, refraction points, adjacency, and event state.
+Register the corresponding presentation module in `src/web/tilings`. It must supply `drawDiskGrid`; `drawReferenceGrid` and the disk-to-reference display transform are optional as a pair. Add its script to the two geometry pages. These functions are deliberately non-authoritative: the native provider remains the sole source of tile crossings, refraction points, adjacency, and event state.
 
-## Adding an order-5 square tiling
+## Installed order-5 square tiling
 
-An order-5 square provider can therefore use a square tile type with `sideCount: 4` while giving each vertex valence 5 through its adjacency/topology implementation. It will need canonical combinatorial tile identities, analytic disk-edge intersections, Euclidean normals to those disk curves, robust point location, reverse-edge adjacency, a manifest, and a browser renderer. No Arb/Calcium code, trajectory loop, server lifecycle, or billiard refraction code should be duplicated.
+`order5-square@1` uses a square tile type with `sideCount: 4` and vertex valence 5. Its canonical topology is generated in the exact field \(\mathbb Q(\sqrt2,\sqrt\varphi)\) from the reflection group \(\Delta(2,4,5)\). Exact transformed tile centers merge duplicate group words, and shared boundary records give a reversible adjacency lookup. Disk point location folds a point through the same four side reflections until it lies in the base square.
 
-If it lacks a useful global plane representation, its reference-map operations may report unsupported. The generic event record preserves disk results, and the reference page and reference-space diagnostics must show unavailable data instead of inventing a square-grid map.
+The `centerU` and `centerV` parameters move one distinguished order-5 vertex to any rational point strictly inside the disk. The native provider applies a Lorentz/Poincaré isometry to every edge, while retaining the same exact combinatorial tiling. The default is the disk origin.
+
+Each supporting edge is represented analytically as a Poincaré geodesic (a Euclidean circle orthogonal to the unit circle, or a diameter). Intersections are solved as degree-at-most-two equations through the shared Arb or Calcium abstraction, finite-edge membership is checked against all four tile half-spaces, and the returned normal is the ordinary Euclidean gradient used by the generic negative-refraction function. The browser independently samples the same reflection construction for black-line rendering only.
+
+The provider has no useful global plane representation, so its reference-map operations report unsupported. The generic event record preserves disk results, and the reference page and reference-space diagnostics show unavailable data instead of inventing a square-grid map.

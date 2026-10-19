@@ -204,5 +204,6 @@ int htb_tiling_neighbors(const htb_tiling *tiling, const htb_tile_id *tile,
                          htb_adjacency_list *neighbors, char *error, size_t error_size);
 
 extern const htb_tiling_definition htb_elliptical_square_definition;
+extern const htb_tiling_definition htb_order5_square_definition;
 
 #endif
