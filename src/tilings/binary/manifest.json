@@ -1,0 +1,27 @@
+{
+  "id": "binary",
+  "version": "1",
+  "name": "Binary Tiling (Böröczky)",
+  "description": "The formal horocyclic binary tiling: dyadic upper-half-plane rectangles mapped analytically to the Poincaré disk.",
+  "tileTypes": [
+    {"id": "horocyclic-pentagon", "name": "Horocyclic binary tile", "sideCount": 5}
+  ],
+  "topology": {
+    "infinite": true,
+    "vertexValences": [3, 4],
+    "neighborsPerTile": 5,
+    "weaklyAperiodic": true,
+    "idealRoot": [1, 0]
+  },
+  "representations": [
+    {"id": "disk", "name": "Poincaré Disk", "authoritative": true},
+    {"id": "upper-half-plane", "name": "Poincaré Upper Half-Plane", "authoritative": false}
+  ],
+  "parameters": [],
+  "capabilities": {
+    "adjacency": true,
+    "diskArea": true,
+    "diskAreaMethod": "deterministic Gauss-Legendre quadrature",
+    "referenceArea": true
+  }
+}

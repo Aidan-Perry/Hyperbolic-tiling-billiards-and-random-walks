@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(hyperbolic_tiling_billiards VERSION 0.4.0 LANGUAGES C)
+project(hyperbolic_tiling_billiards VERSION 0.5.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -10,6 +10,7 @@ pkg_check_modules(FLINT REQUIRED IMPORTED_TARGET flint)
 pkg_check_modules(JANSSON REQUIRED IMPORTED_TARGET jansson)
 
 add_library(htb_core
+  src/native/platform.c
   src/native/arithmetic/arithmetic.c
   src/native/arithmetic/rational.c
   src/native/arithmetic/arb_backend.c
@@ -18,12 +19,18 @@ add_library(htb_core
   src/native/tilings/registry.c
   src/native/tilings/elliptical_square.c
   src/native/tilings/order5_square.c
+  src/native/tilings/binary.c
   src/native/billiards/engine.c
   src/native/random_walk/engine.c
   src/native/io/json_io.c
 )
 target_include_directories(htb_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(htb_core PUBLIC PkgConfig::FLINT PkgConfig::JANSSON m)
+target_link_libraries(htb_core PUBLIC PkgConfig::FLINT PkgConfig::JANSSON)
+if(WIN32)
+  target_link_libraries(htb_core PUBLIC psapi)
+else()
+  target_link_libraries(htb_core PUBLIC m)
+endif()
 target_compile_options(htb_core PRIVATE -Wall -Wextra -Wpedantic)
 
 add_executable(htb_engine src/native/main.c)

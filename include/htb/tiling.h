@@ -213,5 +213,6 @@ int htb_tiling_neighbors(const htb_tiling *tiling, const htb_tile_id *tile,
 
 extern const htb_tiling_definition htb_elliptical_square_definition;
 extern const htb_tiling_definition htb_order5_square_definition;
+extern const htb_tiling_definition htb_binary_definition;
 
 #endif

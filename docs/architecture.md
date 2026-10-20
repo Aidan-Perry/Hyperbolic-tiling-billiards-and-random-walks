@@ -6,10 +6,11 @@ The application is organized around independent simulation, arithmetic, and tili
 
 1. `src/native/arithmetic` owns FLINT-specific values and contexts. Arb and Calcium expose the same operations and explicit unresolved comparisons.
 2. `src/native/geometry` contains only tiling-independent vector operations, ray evaluation, disk containment, Euclidean distance, and negative refraction. It does not know that a tile is a square.
-3. `src/native/tilings` is the provider registry. A provider owns point location, tile and boundary identities, edge enumeration, analytic intersections, normals, adjacency, optional reference maps, vertices, and tile measurements. `elliptical_square.c` implements the radial grid image; `order5_square.c` implements the regular \(\{4,5\}\) reflection tiling.
+3. `src/native/tilings` is the provider registry. A provider owns point location, tile and boundary identities, edge enumeration, analytic intersections, normals, adjacency, optional reference maps, vertices, and tile measurements. `elliptical_square.c` implements the radial grid image; `order5_square.c` implements the regular \(\{4,5\}\) reflection tiling; and `binary.c` implements the dyadic Böröczky tiling through an exact Cayley map from the upper half-plane.
 4. `src/native/billiards` asks the selected provider for candidate crossings, certifies their ordering through the selected arithmetic backend, applies the generic negative-refraction operation, follows the provider's adjacency result, and records diagnostics. It never derives a neighboring tile by modifying grid coordinates.
 5. `src/native/random_walk` asks only for point location, adjacency, tile centers, and numerical disk areas. It applies seeded stochastic policies without knowing tile coordinate schemes or billiard rules.
 6. `src/native/io` validates versioned tiling configurations and serializes opaque canonical tile/boundary identities. Coordinate arrays are provider metadata, not the engine's identity scheme.
+7. `src/native/platform.c` isolates monotonic timing and peak-memory queries. Unix builds use `clock_gettime`/`getrusage`; Windows builds use `QueryPerformanceCounter`/`GetProcessMemoryInfo`.
 
 The two main dependency directions are therefore:
 

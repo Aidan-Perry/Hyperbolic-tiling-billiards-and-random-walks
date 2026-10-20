@@ -4,6 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+static char *copy_string_part(const char *source, size_t length) {
+    char *copy = malloc(length + 1);
+    if (!copy) return NULL;
+    memcpy(copy, source, length);
+    copy[length] = '\0';
+    return copy;
+}
+
 static int all_digits(const char *s, size_t n) {
     if (n == 0) return 0;
     for (size_t i = 0; i < n; ++i) if (!isdigit((unsigned char)s[i])) return 0;
@@ -30,8 +38,8 @@ int htb_parse_fmpq(fmpq_t result, const char *text, char *error, size_t error_si
     if (slash) {
         if (dot || strchr(slash + 1, '/') || !all_digits(s, (size_t)(slash - s)) ||
             !all_digits(slash + 1, strlen(slash + 1))) goto invalid;
-        char *n = strndup(s, (size_t)(slash - s));
-        char *d = strdup(slash + 1);
+        char *n = copy_string_part(s, (size_t)(slash - s));
+        char *d = copy_string_part(slash + 1, strlen(slash + 1));
         if (!n || !d) { free(n); free(d); goto invalid; }
         ok = fmpz_set_str(num, n, 10) == 0 && fmpz_set_str(den, d, 10) == 0 && !fmpz_is_zero(den);
         free(n); free(d);
@@ -64,4 +72,3 @@ invalid:
     fmpz_clear(num); fmpz_clear(den);
     return 0;
 }
-

@@ -18,7 +18,7 @@ if curl --silent --fail "$APP_URL/api/health" >/dev/null 2>&1; then
   exit 0
 fi
 
-echo "Starting Hyperbolic Tiling Billiards..."
+echo "Starting Hyperbolic Tiling Billiards for macOS..."
 
 for program in node npm cmake pkg-config; do
   if ! command -v "$program" >/dev/null 2>&1; then

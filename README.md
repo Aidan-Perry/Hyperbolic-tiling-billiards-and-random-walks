@@ -1,6 +1,6 @@
 # Hyperbolic Tiling Billiards
 
-Research software for ordinary **Euclidean tiling billiards** and seeded, area-weighted **random walks** on selectable curved tilings of the open unit disk. The installed definitions are the elliptically distorted square grid and the regular order-5 square tiling \(\{4,5\}\). The name describes the disk representation, not the billiard dynamics: trajectories are straight Euclidean segments, and all boundary angles, normals, distances, and refractions are Euclidean. The order-5 provider uses hyperbolic geometry only to construct its fixed tiling boundaries—not to propagate the billiard.
+Research software for ordinary **Euclidean tiling billiards** and seeded, area-weighted **random walks** on selectable curved tilings of the open unit disk. The installed definitions are the elliptically distorted square grid, the regular order-5 square tiling \(\{4,5\}\), and the horocyclic binary (Böröczky) tiling. The name describes the disk representation, not the billiard dynamics: trajectories are straight Euclidean segments, and all boundary angles, normals, distances, and refractions are Euclidean. Hyperbolic constructions are used only to define applicable tiling boundaries—not to propagate the billiard.
 
 The application has a C17/FLINT native engine, a small Node.js process supervisor, and three synchronized p5.js pages. Billiards supports one or two independently initialized trajectories in rigorous Arb **Scientific Computing** mode or Calcium **Exact Algebra** mode. Random walk is a separate native simulation type with its own controls and diagnostics.
 
@@ -42,6 +42,17 @@ The `order5-square@1` provider constructs the regular Poincaré-disk tessellatio
 
 Although these tile edges are Poincaré geodesics, collision detection treats each as its exact Euclidean circle or diameter. Between crossings, the particle still follows a straight Euclidean chord and uses the same Euclidean negative-refraction formula shown above.
 
+### Binary tiling
+
+The `binary@1` provider is the formal horocyclic binary or Böröczky tiling. In the Poincaré upper half-plane it uses the complete dyadic family
+
+\[
+T_{n,k}=[k2^n,(k+1)2^n]\times[2^n,2^{n+1}],
+\qquad n,k\in\mathbb Z.
+\]
+
+The Cayley map sends this family to the disk with its common ideal point at \((1,0)\). A tile has a left neighbor, a right neighbor, one parent, and two children. Its lower horocycle is consequently represented by two finite edges, giving five positive-length neighbors. The secondary geometry window shows the exact upper-half-plane representation. See the [mathematical reference](docs/mathematics.md#horocyclic-binary-b%C3%B6r%C3%B6czky-tiling) for the map, analytic circle equations, and adjacency formulas.
+
 ## Dependencies
 
 - C17 compiler
@@ -67,6 +78,14 @@ npm install
 
 Confirm that `pkg-config --modversion flint` reports 3.x. Calcium is part of current FLINT; do not install a separate legacy Calcium package.
 
+Windows uses the MSYS2 UCRT64 toolchain because the native engine depends on FLINT, GMP, MPFR, and Jansson. Install [MSYS2](https://www.msys2.org/), open its **UCRT64** terminal, and run:
+
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-flint mingw-w64-ucrt-x86_64-jansson
+```
+
+Install Node.js 20 or newer separately. The Windows launcher recognizes the default `C:\msys64` installation. For a different location, set `MSYS2_ROOT` to the MSYS2 installation directory before launching.
+
 ## Build and test
 
 ```bash
@@ -83,6 +102,15 @@ build/htb_engine --request request.json
 ```
 
 ## Run the application
+
+For a double-click launch, use the platform-specific file in the repository root:
+
+- macOS: `Start_sim_mac.command`
+- Windows: `Start_sim_windows.cmd`
+
+Each launcher checks dependencies, installs the local p5.js package when needed, builds the native engine, starts the local server, and opens the three synchronized pages. Keep its terminal window open while using the application. The Windows launcher keeps its native artifacts in `build-windows` so they cannot conflict with a macOS or Linux build directory.
+
+To start the already-built application manually:
 
 ```bash
 npm start
@@ -102,7 +130,7 @@ The visually separate **Simulation** selector switches between Billiards and Ran
 
 Coordinate and angle fields accept exact integers, terminating decimals, and fractions such as `-17/64`. Strings are parsed directly into FLINT rationals; they never pass through JavaScript binary floating point before native computation.
 
-The tiling selector is populated from the server's installed provider manifests. It contains **Elliptically Distorted Square Grid** and **Order-5 Square Tiling {4,5}**. Selecting a tiling chooses a versioned native geometry/topology provider and its provider-specific parameters; it is not a cosmetic rendering choice.
+The tiling selector is populated from the server's installed provider manifests. It contains **Elliptically Distorted Square Grid**, **Order-5 Square Tiling {4,5}**, and **Binary Tiling (Böröczky)**. Selecting a tiling chooses a versioned native geometry/topology provider and its provider-specific parameters; it is not a cosmetic rendering choice.
 
 The launch point must lie strictly inside the disk. Initial direction is entered in ordinary Euclidean degrees: (0^\circ) points along (+u), (90^\circ) along (+v), and positive angles turn counterclockwise. The native arithmetic backend evaluates the unit direction ((\cos(\pi\theta/180),\sin(\pi\theta/180))); browser trigonometry is used only for the green preview. Arb produces rigorous enclosures and Calcium retains the exact algebraic values for rational degree inputs.
 
@@ -118,13 +146,13 @@ Inputs lock as soon as a run starts. **Reset Trajectory** cancels an active subp
 
 ## Random walks
 
-Random walk accepts an interior disk point, a nonnegative 64-bit integer seed, and a number of steps. The native tiling provider locates the starting tile. At every step the candidate set consists of the current tile together with every tile sharing a positive-length edge with it; vertex-only contacts are excluded. For the installed distribution,
+Random walk accepts an interior disk point and a number of steps. When a run begins, the server generates a fresh uniformly random unsigned 64-bit seed and records it in the authoritative request and result. The native tiling provider locates the starting tile. At every step the candidate set consists of the current tile together with every tile sharing a positive-length edge with it; vertex-only contacts are excluded. For the installed distribution,
 
 \[
 \Pr(T\to S)=\frac{\operatorname{area}_{\mathbb D}(S)}{\sum_{R\in\{T\}\cup N(T)}\operatorname{area}_{\mathbb D}(R)}.
 \]
 
-Including \(T\) itself means that a step can stay in the current tile. Such stays are recorded explicitly rather than discarded. The seed drives a fixed native SplitMix64 generator, so the same application version, tiling parameters, distribution, starting point, step count, and seed reproduce the same itinerary.
+Including \(T\) itself means that a step can stay in the current tile. Such stays are recorded explicitly rather than discarded. The generated seed is shown in the completed-run summary and included in JSON and CSV exports. It drives a fixed native SplitMix64 generator, so retaining that recorded seed together with the application version, tiling parameters, distribution, starting point, and step count preserves a reproducible experiment. Direct native or structured API requests may supply a recorded seed when an exact replay is required; ordinary browser runs always generate one automatically.
 
 This mode intentionally has no Arb/Calcium selector. Tile location still begins from exact rational text and uses certified native geometry, but transition weights are numerical Euclidean disk-area estimates supplied by each tiling provider. The result labels those areas and their refinement-difference error estimates as approximate; they are not certified balls and are never used for billiard decisions.
 
@@ -177,8 +205,10 @@ The server permits one active native run (containing up to two trajectories), im
 - The visible disk grid is a finite selection of mathematically infinite grid lines. The native trajectory has no corresponding rendering boundary.
 - The order-5 provider has no global Euclidean reference-plane representation. Its disk results, topology, diagnostics, and exports are complete, while reference-space graphs and the reference page are explicitly unavailable.
 - Exact order-5 trajectories can accumulate algebraic complexity rapidly. Short rational-direction runs are practical; long generic runs may require cancellation even though no mathematical approximation fallback occurs.
+- The binary provider fixes its common ideal point at the right-hand disk boundary \((1,0)\). A placement/rotation parameter is not exposed in version 1.
+- Binary tile indices are limited to levels \(-4096\) through \(4096\). At much smaller disk-area scales, random-walk weighting can also stop with an explicit numerical-range error rather than underflow silently.
 - Memory enforcement is portable and cooperative; the native memory limit is checked against measured resident usage. Long exact computations have no automatic wall-clock deadline and must be cancelled explicitly when no longer wanted.
-- Random-walk disk areas are deterministic numerical estimates rather than Arb-certified measures. The two providers expose an estimated quadrature/sampling error, and exports state `certified: false`.
+- Random-walk disk areas are deterministic numerical estimates rather than Arb-certified measures. All installed providers expose an estimated quadrature/sampling error, and exports state `certified: false`.
 
 ## Extending the engine
 

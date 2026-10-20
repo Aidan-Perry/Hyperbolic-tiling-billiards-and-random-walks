@@ -1,14 +1,11 @@
 #include "htb/engine.h"
+#include "htb/platform.h"
 
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/resource.h>
-#include <time.h>
-
-static double now_seconds(void){struct timespec ts;clock_gettime(CLOCK_MONOTONIC,&ts);return(double)ts.tv_sec+(double)ts.tv_nsec/1e9;}
 
 typedef struct { uint64_t state; } walk_rng;
 static uint64_t rng_next(walk_rng*r){uint64_t z=(r->state+=UINT64_C(0x9e3779b97f4a7c15));z=(z^(z>>30))*UINT64_C(0xbf58476d1ce4e5b9);z=(z^(z>>27))*UINT64_C(0x94d049bb133111eb);return z^(z>>31);}
@@ -32,7 +29,7 @@ static int append_step(htb_walk_result*w,const htb_walk_step*step){if(w->step_co
 static void assign_depths(htb_walk_result*w){if(!w->node_count)return;int*queue=malloc(w->node_count*sizeof(*queue));if(!queue)return;size_t head=0,tail=0;w->nodes[0].graph_depth=0;queue[tail++]=0;while(head<tail){int current=queue[head++],depth=w->nodes[current].graph_depth;for(size_t i=0;i<w->edge_count;i++){int next=w->edges[i].source==current?w->edges[i].target:w->edges[i].target==current?w->edges[i].source:-1;if(next>=0&&w->nodes[next].graph_depth<0){w->nodes[next].graph_depth=depth+1;queue[tail++]=next;}}}free(queue);}
 
 int htb_run_random_walk(const htb_run_request*request,htb_run_result*result,htb_progress_fn progress,void*progress_user){
-    memset(result,0,sizeof(*result));result->simulation_kind=HTB_SIMULATION_RANDOM_WALK;snprintf(result->run_id,sizeof(result->run_id),"%s",request->run_id);result->tiling=request->tiling;result->status=HTB_STATUS_COMPUTING;htb_walk_result*w=&result->walk;w->requested_steps=request->walk.steps;snprintf(w->distribution,sizeof(w->distribution),"%s",request->walk.distribution);snprintf(w->seed,sizeof(w->seed),"%s",request->walk.seed);double started=now_seconds();emit_progress(progress,progress_user,"run_started",-1);
+    memset(result,0,sizeof(*result));result->simulation_kind=HTB_SIMULATION_RANDOM_WALK;snprintf(result->run_id,sizeof(result->run_id),"%s",request->run_id);result->tiling=request->tiling;result->status=HTB_STATUS_COMPUTING;htb_walk_result*w=&result->walk;w->requested_steps=request->walk.steps;snprintf(w->distribution,sizeof(w->distribution),"%s",request->walk.distribution);snprintf(w->seed,sizeof(w->seed),"%s",request->walk.seed);double started=htb_now_seconds();emit_progress(progress,progress_user,"run_started",-1);
     char error[256]={0};uint64_t seed=0;if(!parse_seed(request->walk.seed,&seed)){w->status=HTB_STATUS_INVALID_INPUT;snprintf(w->status_detail,sizeof(w->status_detail),"random seed must be an unsigned 64-bit integer");goto finish;}walk_rng rng={seed};
     htb_arith_ctx ctx;if(!htb_arith_ctx_init(&ctx,HTB_BACKEND_ARB,256,2048,error,sizeof(error))){w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"random-walk geometry context failed: %s",error);goto finish;}htb_tiling tiling;memset(&tiling,0,sizeof(tiling));htb_vec2 start;htb_vec2_init(&ctx,&start);htb_point_location location;htb_point_location_init(&location);int tiling_ready=0;
     int ok=htb_tiling_init(&tiling,&ctx,&request->tiling,error,sizeof(error));tiling_ready=ok;if(ok)ok=htb_scalar_parse_rational(&start.x,request->walk.start_u,error,sizeof(error))&&htb_scalar_parse_rational(&start.y,request->walk.start_v,error,sizeof(error));htb_cmp inside=HTB_CMP_ERROR;if(ok)ok=htb_disk_contains(&start,&inside)&&inside==HTB_CMP_LESS;if(ok)ok=tiling.definition->ops.locate_point(&tiling,&start,&location,error,sizeof(error));
@@ -55,11 +52,5 @@ int htb_run_random_walk(const htb_run_request*request,htb_run_result*result,htb_
     {htb_adjacency_list halo;htb_adjacency_list_init(&halo);if(!htb_tiling_neighbors(&tiling,&w->nodes[current].tile,&halo,error,sizeof(error))){htb_adjacency_list_clear(&halo);w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"final adjacency halo failed: %s",error);goto cleanup;}for(size_t i=0;i<halo.count;i++){int node=ensure_node(w,&tiling,&halo.items[i].neighbor,error,sizeof(error));if(node<0||ensure_edge(w,current,node)<0){htb_adjacency_list_clear(&halo);w->status=HTB_STATUS_INTERNAL_ERROR;snprintf(w->status_detail,sizeof(w->status_detail),"failed to complete adjacency halo");goto cleanup;}}htb_adjacency_list_clear(&halo);}
     w->status=HTB_STATUS_COMPLETED;snprintf(w->status_detail,sizeof(w->status_detail),"Completed %d area-weighted random-walk steps.",request->walk.steps);
 cleanup:assign_depths(w);htb_point_location_clear(&location);htb_vec2_clear(&start);if(tiling_ready)htb_tiling_clear(&tiling);htb_arith_ctx_clear(&ctx);
-finish:w->runtime_seconds=now_seconds()-started;result->runtime_seconds=w->runtime_seconds;result->status=w->status;snprintf(result->status_detail,sizeof(result->status_detail),"%s",w->status_detail);struct rusage usage;if(getrusage(RUSAGE_SELF,&usage)==0){
-#ifdef __APPLE__
-      result->peak_memory_kb=(long)(usage.ru_maxrss/1024);
-#else
-      result->peak_memory_kb=(long)usage.ru_maxrss;
-#endif
-    }emit_progress(progress,progress_user,"run_finished",w->completed_steps);return 1;
+finish:w->runtime_seconds=htb_now_seconds()-started;result->runtime_seconds=w->runtime_seconds;result->status=w->status;snprintf(result->status_detail,sizeof(result->status_detail),"%s",w->status_detail);result->peak_memory_kb=htb_peak_memory_kb();emit_progress(progress,progress_user,"run_finished",w->completed_steps);return 1;
 }

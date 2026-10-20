@@ -73,3 +73,68 @@ The reflection-group and Poincaré machinery construct the tiling only. The movi
 The placement transform sends a distinguished tiling vertex to the exact rational parameter pair `centerU`, `centerV`. This changes only the disk placement, not the \(\{4,5\}\) incidence structure.
 
 The construction follows the standard reflection/Wythoff description of regular hyperbolic tilings; useful background appears in the [PRX Quantum discussion of triangle-group tilings](https://journals.aps.org/prxquantum/abstract/10.1103/PRXQuantum.5.040327) and the [Clark University Poincaré tiling reference](https://mathcs.clarku.edu/~djoyce/poincare/index.html). The formulas implemented here are stated above so a run does not depend on either external site.
+
+## Horocyclic binary (Böröczky) tiling
+
+The `binary@1` provider uses the conventional dyadic construction in the Poincaré upper half-plane
+
+\[
+\mathbb H=\{(x,y):y>0\}.
+\]
+
+Its tiles are the closed reference cells
+
+\[
+T_{n,k}=[k2^n,(k+1)2^n]\times[2^n,2^{n+1}],
+\qquad n,k\in\mathbb Z,
+\]
+
+with the usual consistent ownership convention on shared boundaries. Scaling by two maps every tile to a congruent tile in hyperbolic geometry. The horizontal sides lie on horocycles; the two vertical sides lie on hyperbolic geodesics asymptotic to the same ideal point. This is the rectangle/cube construction used in the formal binary-tiling literature; see [A Quadtree for Hyperbolic Space](https://jocg.org/index.php/jocg/article/download/5499/3921/17748). The submitted reference image is the corresponding [Poincaré-disk rendering](https://commons.wikimedia.org/wiki/File:Hyperbolic_binary_tiling.png).
+
+The exact Cayley map used by the provider is
+
+\[
+C(x,y)=\left(
+\frac{x^2+y^2-1}{x^2+(y+1)^2},
+\frac{-2x}{x^2+(y+1)^2}
+\right),
+\]
+
+and its inverse is
+
+\[
+C^{-1}(u,v)=\left(
+\frac{-2v}{(1-u)^2+v^2},
+\frac{1-u^2-v^2}{(1-u)^2+v^2}
+\right).
+\]
+
+Thus the common upper-half-plane point at infinity is shown at the right-hand ideal disk point \((1,0)\). This placement is fixed in provider version 1.
+
+A vertical reference boundary \(x=a\) has disk equation
+
+\[
+a\big((1-u)^2+v^2\big)+2v=0,
+\]
+
+and a horizontal reference boundary \(y=h\), with \(h>0\), has disk equation
+
+\[
+(h+1)(u^2+v^2)-2hu+(h-1)=0.
+\]
+
+Both are Euclidean circle or line equations. Substitution of the Euclidean billiard ray \(P+tV\) therefore gives a polynomial of degree at most two. The native provider solves that polynomial in Arb or Calcium, checks the appropriate finite reference interval under \(C^{-1}\), rejects tangencies, and supplies the Euclidean gradient of the implicit disk circle to the shared negative-refraction operation. Browser curve sampling is never used to choose a collision.
+
+Each cell has five positive-length adjacency edges. Writing a tile as \((n,k)\), these are
+
+\[
+\begin{aligned}
+L(n,k)&=(n,k-1), & R(n,k)&=(n,k+1),\\
+P(n,k)&=(n+1,\lfloor k/2\rfloor),\\
+C_0(n,k)&=(n-1,2k), & C_1(n,k)&=(n-1,2k+1).
+\end{aligned}
+\]
+
+The lower horocycle segment is split at its midpoint so the two child adjacencies are separate finite edges. Vertices at that midpoint have valence three; corner vertices have valence four. Random walks receive exactly these five neighbors through the same provider contract used for billiard transitions.
+
+As with the order-5 provider, the hyperbolic model defines the tiling only. The simulated billiard still travels on straight Euclidean disk segments and refracts with Euclidean normals.
