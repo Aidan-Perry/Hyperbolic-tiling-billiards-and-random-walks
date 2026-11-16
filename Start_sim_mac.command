@@ -9,7 +9,7 @@ ENGINE_PATH="$SCRIPT_DIR/build/htb_engine"
 cd "$SCRIPT_DIR" || exit 1
 
 open_workspace() {
-  open "$APP_URL/disk" "$APP_URL/plane" "$APP_URL/diagnostics"
+  open "$APP_URL/plane" "$APP_URL/disk" "$APP_URL/diagnostics"
 }
 
 if curl --silent --fail "$APP_URL/api/health" >/dev/null 2>&1; then

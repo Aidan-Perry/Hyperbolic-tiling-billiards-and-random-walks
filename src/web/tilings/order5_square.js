@@ -34,8 +34,8 @@
     const vertices=normals.map((n,k)=>crossPlanes(n,normals[(k+1)%4]));
     const baseCenter=[b*b*b,-1,0],p=normalize(vertices[0]);
     const parameters=config?.parameters||{},u=HTB.rational(parameters.centerU??'0'),v=HTB.rational(parameters.centerV??'0');
-    const target=hyper(u,v),placement=mul(boost(target),boost(p,true));
-    return {vertices,sideRefs,baseCenter,placement};
+    const target=hyper(u,v),baseToOrigin=boost(p,true),placement=mul(boost(target),baseToOrigin);
+    return {vertices,sideRefs,baseCenter,placement,target,baseToOrigin};
   }
 
   function geodesicPoints(a,b){
@@ -73,5 +73,15 @@
     const origin=view.screen(p,0,0);p.strokeWeight(1.6);p.circle(origin[0],origin[1],2*view.scale());
   }
 
-  HTBTilings.register({id:'order5-square',drawDiskGrid});
+  function drawDiskTenths(p,config,view){
+    const c=construction(config),neighbor=disk(mv(c.baseToOrigin,c.vertices[1])),theta=Math.atan2(neighbor[1],neighbor[0]),moveToTarget=boost(c.target);
+    p.noFill();p.stroke('#14813d');p.strokeWeight(1.35);
+    for(let k=0;k<10;k++){
+      const angle=theta+k*Math.PI/5;p.beginShape();
+      for(let i=0;i<=64;i++){const r=.9999*i/64,q=disk(mv(moveToTarget,hyper(r*Math.cos(angle),r*Math.sin(angle))));view.vertex(p,q[0],q[1])}
+      p.endShape();
+    }
+  }
+
+  HTBTilings.register({id:'order5-square',drawDiskGrid,drawDiskTenths});
 })();

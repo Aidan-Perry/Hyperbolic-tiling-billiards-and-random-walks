@@ -144,6 +144,10 @@ Enable Trajectory B for an independent blue trajectory. Both trajectories share 
 
 Inputs lock as soon as a run starts. **Reset Trajectory** cancels an active subprocess if necessary, clears run-specific data, unlocks inputs, and preserves current field values. Green arrows are presentation-only Euclidean unit-direction indicators and disappear while a run is active or displayed.
 
+Each viewer has a **Hide tiling** control that removes the tiling or adjacency backdrop without hiding the billiard trajectory or random-walk path. Use **Show tiling** to restore it. Mouse-wheel zoom stays anchored to the pointer and has no application-imposed maximum magnification.
+
+For the order-5 square tiling, the disk viewer also offers **Show tenths**. Its ten green rays alternate between the five square edges incident to the distinguished vertex and their five angular bisectors. Because the Poincaré model preserves angles, the construction remains tied to the tiling when that vertex is moved away from the disk center.
+
 ## Random walks
 
 Random walk accepts an interior disk point and a number of steps. When a run begins, the server generates a fresh uniformly random unsigned 64-bit seed and records it in the authoritative request and result. The native tiling provider locates the starting tile. At every step the candidate set consists of the current tile together with every tile sharing a positive-length edge with it; vertex-only contacts are excluded. For the installed distribution,
@@ -195,7 +199,7 @@ The benchmark prints measured status, completed bounces, runtime, comparison cou
 
 Every collision predicate has an explicit Less/Equal/Greater/Unresolved/Error outcome. A true equal-time incident-edge event stops as a vertex collision. Overlapping Arb balls cause replay at higher precision; an unresolved Calcium comparison or an Arb overlap at the precision ceiling stops with the last fully certified prefix, competing edges, time enclosures, tile, bounce, precision, and reason.
 
-The server permits one active native run (containing up to two trajectories), imposes input and bounce limits, and uses `spawn` without a shell. There is no wall-clock time budget: a computation continues until it finishes or the user presses **Cancel computation** (reset also cancels active work). Peak resident memory is measured with `getrusage`; the configured memory threshold is a checked budget rather than an OS hard limit.
+The server permits one active native run (containing up to two trajectories), validates its inputs, and uses `spawn` without a shell. There is no wall-clock time budget: a computation continues until it finishes or the user presses **Cancel computation** (reset also cancels active work). Peak resident memory is measured with `getrusage`; the configured memory threshold is a checked budget rather than an OS hard limit.
 
 ## Known limitations
 

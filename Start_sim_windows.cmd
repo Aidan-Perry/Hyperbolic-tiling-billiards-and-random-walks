@@ -51,7 +51,7 @@ if not exist "%ENGINE_PATH%" goto engine_error
 
 echo Launching the local server...
 set "HTB_ENGINE=%ENGINE_PATH%"
-start "" /b powershell.exe -NoProfile -WindowStyle Hidden -Command "$base='%APP_URL%'; for($i=0; $i -lt 100; $i++){ try { $health=Invoke-RestMethod -Uri ($base+'/api/health') -TimeoutSec 1; if($health.ok){ Start-Process ($base+'/disk'); Start-Process ($base+'/plane'); Start-Process ($base+'/diagnostics'); exit 0 } } catch {}; Start-Sleep -Milliseconds 100 }; exit 1"
+start "" /b powershell.exe -NoProfile -WindowStyle Hidden -Command "$base='%APP_URL%'; for($i=0; $i -lt 100; $i++){ try { $health=Invoke-RestMethod -Uri ($base+'/api/health') -TimeoutSec 1; if($health.ok){ Start-Process ($base+'/plane'); Start-Process ($base+'/disk'); Start-Process ($base+'/diagnostics'); exit 0 } } catch {}; Start-Sleep -Milliseconds 100 }; exit 1"
 
 echo.
 echo The simulator will open three synchronized browser pages.
@@ -68,8 +68,8 @@ powershell.exe -NoProfile -Command "try { $health=Invoke-RestMethod -Uri '%APP_U
 exit /b %ERRORLEVEL%
 
 :open_workspace
-start "" "%APP_URL%/disk"
 start "" "%APP_URL%/plane"
+start "" "%APP_URL%/disk"
 start "" "%APP_URL%/diagnostics"
 exit /b 0
 
