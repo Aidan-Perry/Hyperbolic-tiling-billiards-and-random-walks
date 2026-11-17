@@ -15,6 +15,7 @@ Register one `htb_tiling_definition` in `src/native/tilings/registry.c`. Its ope
 - `edge_vertices`: provide endpoints when vertex-clearance diagnostics are supported.
 - `to_reference` / `from_reference`: provide an optional secondary representation.
 - `tile_measure`: provide supported geometric measures for diagnostics or stochastic weighting.
+- `canonical_side`: optionally assign a certified provider-defined side number to a tile/edge pair. It must return unresolved rather than guess when an ordering or orientation is undecidable.
 
 Tile identity is an opaque `htb_tile_id`. Its canonical `key` must be stable and unique within the provider version; the engine uses that key for equality, hashing, visited sets, periodicity, exports, and future caches. `provider_words` are an optional compact form that only the provider interprets. A label and tile-type string are presentation metadata.
 
@@ -48,6 +49,8 @@ The `centerU` and `centerV` parameters move one distinguished order-5 vertex to 
 Each supporting edge is represented analytically as a Poincaré geodesic (a Euclidean circle orthogonal to the unit circle, or a diameter). Intersections are solved as degree-at-most-two equations through the shared Arb or Calcium abstraction, finite-edge membership is checked against all four tile half-spaces, and the returned normal is the ordinary Euclidean gradient used by the generic negative-refraction function. The browser independently samples the same reflection construction for black-line rendering only.
 
 The provider has no useful global plane representation, so its reference-map operations report unsupported. The generic event record preserves disk results, and the reference page and reference-space diagnostics show unavailable data instead of inventing a square-grid map.
+
+Its optional `canonical_side` operation implements `order5-radial-v1`: side 1 is the first edge met by the Euclidean segment from the distinguished vertex to the tile center, vertex ties use the counterclockwise rule, and the remaining sides proceed counterclockwise. The cached local permutation is attached to provider tile state, while exported crossings carry directed `outgoingSide->incomingSide` tokens. Canonical numbers are derived from geometric tile/boundary identities and do not depend on discovery order or the particular reflection word retained internally.
 
 ## Installed binary tiling
 

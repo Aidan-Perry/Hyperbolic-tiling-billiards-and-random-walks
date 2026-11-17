@@ -8,6 +8,8 @@
 
 #define HTB_STATUS_TEXT 512
 #define HTB_MAX_COMPETING_CANDIDATES 16
+#define HTB_SYMBOL_MAX 16
+#define HTB_SYMBOL_CONVENTION_MAX 48
 
 typedef enum {
     HTB_STATUS_READY,
@@ -108,6 +110,8 @@ typedef struct {
     int repeated_visits;
     double runtime_seconds;
     char time_enclosure[HTB_TEXT];
+    int outgoing_side, incoming_side;
+    char symbol[HTB_SYMBOL_MAX];
 } htb_event;
 
 typedef struct {
@@ -134,6 +138,9 @@ typedef struct {
     char competing_times[HTB_MAX_COMPETING_CANDIDATES][HTB_TEXT];
     char competing_states[HTB_MAX_COMPETING_CANDIDATES][40];
     char uncertainty_reason[160];
+    char *symbolic_word;
+    size_t symbol_count, symbolic_word_capacity;
+    char symbol_convention[HTB_SYMBOL_CONVENTION_MAX];
     htb_arith_ctx *arith;
 } htb_trajectory_result;
 

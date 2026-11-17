@@ -168,7 +168,7 @@ Random-walk diagnostics include center displacement, unique tiles, cumulative ce
 
 ### Scientific Computing
 
-Arb balls rigorously enclose every native scalar. The initial precision is 128 bits by default. If a collision decision cannot be certified, the engine doubles precision and replays the trajectory from the original rational inputs, up to the configured maximum (8192 bits by default). It never chooses by midpoint or epsilon.
+Arb balls rigorously enclose every native scalar. The initial precision is 128 bits by default. If a collision decision cannot be certified, the engine doubles precision and replays the trajectory from the original rational inputs, up to the configured maximum (8192 bits by default, with a supported ceiling of 262,144 bits). It never chooses by midpoint or epsilon.
 
 ### Exact Algebra
 
@@ -178,9 +178,9 @@ Each enabled trajectory owns an independent mutable arithmetic context.
 
 ## Diagnostics and export
 
-The native result records every certified event: disk and provider-reference coordinates when available, canonical before/after tile keys, canonical boundary key, crossed-edge label, incoming/outgoing direction, collision-time enclosure, precision, displacement, cumulative Euclidean disk path length, and endpoint clearance where supported. Unique visits use opaque provider-owned tile identities rather than inferred coordinates. Exact periodicity requires a repeated exact crossing state; an Arb proximity label is explicitly not a proof.
+The native result records every certified event: disk and provider-reference coordinates when available, canonical before/after tile keys, canonical boundary key, crossed-edge label, incoming/outgoing direction, collision-time enclosure, precision, displacement, cumulative Euclidean disk path length, and endpoint clearance where supported. Order-5 billiards additionally export the `order5-radial-v1` directed side token for every event (including event 0), the exact space-separated symbolic word, and its token count. Unique visits use opaque provider-owned tile identities rather than inferred coordinates. Exact periodicity requires a repeated exact crossing state; an Arb proximity label is explicitly not a proof.
 
-The diagnostics page offers full JSON and mode-appropriate CSV data: per-bounce/crossing exports for billiards or per-step exports for random walk. Rounded `approx` values are presentation values. `display` and `enclosure` fields preserve the distinction between display conversion and the authoritative native state.
+The diagnostics page offers full JSON and mode-appropriate CSV data: per-bounce/crossing exports for billiards or per-step exports for random walk. For order-5 words it also graphs factor complexity \(p(n)\), the number of distinct contiguous token substrings of length \(n\), with independently truncated A/B series. Rounded `approx` values are presentation values. `display` and `enclosure` fields preserve the distinction between display conversion and the authoritative native state.
 
 ## Benchmarks
 

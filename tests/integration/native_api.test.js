@@ -85,9 +85,10 @@ test('one trajectory can stop while the other completes',()=>{
   const q=request('exact',[{id:'A',startU:'0',startV:'0',directionU:'1',directionV:'1',bounces:4},{id:'B',startU:'0',startV:'0',directionU:'1',directionV:'0',bounces:4}]);q.tiling.parameters={centerX:'1/2',centerY:'1/2'};const result=run(q);assert.equal(result.trajectories[0].status,'Vertex collision');assert.equal(result.trajectories[1].status,'Completed');assert.equal(result.trajectories[1].completedBounces,4);
 });
 
-test('schema 3 output preserves the selected tiling and canonical identities',()=>{
+test('schema 3.1 output preserves the selected tiling and canonical identities',()=>{
   const result=run(request('scientific'));
-  assert.equal(result.schemaVersion,'3.0');
+  assert.equal(result.schemaVersion,'3.1');
+  assert.equal(result.applicationVersion,'0.6.0');
   assert.equal(result.tiling.id,'elliptical-square');
   assert.equal(result.tiling.version,'1');
   assert.match(result.trajectories[0].events[0].tileAfter.key,/^elliptical-square:/);
@@ -114,6 +115,23 @@ test('order-5 square provider completes certified disk trajectories with default
 test('order-5 square intersections also run through Exact Algebra without approximation fallback',()=>{
   const q=request('exact',[{id:'A',startU:'1/10',startV:'1/10',directionU:'1',directionV:'1/3',bounces:1}]);q.tiling={id:'order5-square',version:'1',parameters:{centerU:'0',centerV:'0'}};q.resources.maxPrecision=512;
   const result=run(q),trajectory=result.trajectories[0];assert.equal(trajectory.status,'Completed');assert.equal(trajectory.events.length,2);assert.equal(result.mode,'exact');assert.ok(trajectory.events.every(e=>e.certification==='certified'));
+});
+test('order-5 symbolic words are certified identically in both arithmetic modes',()=>{
+  const input={id:'A',startU:'1/5',startV:'-1/10',directionU:'1',directionV:'1/3',bounces:1};
+  const outputs=['scientific','exact'].map(mode=>{const q=request(mode,[input]);q.tiling={id:'order5-square',version:'1',parameters:{centerU:'0',centerV:'0'}};q.resources.maxPrecision=2048;return run(q).trajectories[0]});
+  assert.equal(outputs[0].symbolicWord,outputs[1].symbolicWord);
+  for(const t of outputs){assert.equal(t.symbolConvention,'order5-radial-v1');assert.equal(t.symbolCount,t.events.length);assert.equal(t.symbolicWord,t.events.map(e=>e.symbol).join(' '));assert.ok(t.events.every(e=>e.symbol===`${e.outgoingSide}->${e.incomingSide}`));assert.doesNotMatch(t.symbolicWord,/  | ->|-> /)}
+});
+test('event zero contributes the sole token when zero later bounces are requested',()=>{
+  const q=request('scientific',[{id:'A',startU:'1/5',startV:'-1/10',directionU:'1',directionV:'1/3',bounces:0}]);q.tiling={id:'order5-square',version:'1',parameters:{centerU:'0',centerV:'0'}};
+  const t=run(q).trajectories[0];assert.equal(t.events.length,1);assert.equal(t.events[0].index,0);assert.equal(t.symbolCount,1);assert.equal(t.symbolicWord,t.events[0].symbol);
+});
+test('symmetric radial vertex labels do not terminate a scientific order-5 orbit',()=>{
+  const q=request('scientific',[{id:'A',startU:'0',startV:'0.01',angleDegrees:'54',bounces:20}]);q.tiling={id:'order5-square',version:'1',parameters:{centerU:'0',centerV:'0'}};
+  const t=run(q).trajectories[0];assert.equal(t.status,'Completed');assert.equal(t.completedBounces,20);assert.equal(t.events.length,21);assert.equal(t.symbolCount,21);assert.equal(t.symbolicWord,t.events.map(e=>e.symbol).join(' '));
+});
+test('other billiard providers export an unavailable canonical alphabet',()=>{
+  const t=run(request('scientific')).trajectories[0];assert.equal(t.symbolicWord,null);assert.equal(t.symbolCount,0);assert.equal(t.symbolConvention,null);assert.ok(t.events.every(e=>e.symbol===null&&e.outgoingSide===null&&e.incomingSide===null));
 });
 test('order-5 distinguished vertex launch is classified explicitly in Scientific Computing',()=>{
   const q=request('scientific',[{id:'A',startU:'0',startV:'0',directionU:'1',directionV:'1/3',bounces:1}]);q.tiling={id:'order5-square',version:'1',parameters:{centerU:'0',centerV:'0'}};q.resources.maxPrecision=1024;

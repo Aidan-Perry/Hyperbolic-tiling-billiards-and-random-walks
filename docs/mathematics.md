@@ -72,6 +72,21 @@ The reflection-group and Poincaré machinery construct the tiling only. The movi
 
 The placement transform sends a distinguished tiling vertex to the exact rational parameter pair `centerU`, `centerV`. This changes only the disk placement, not the \(\{4,5\}\) incidence structure.
 
+### Canonical order-5 side coding
+
+For every order-5 tile, draw the straight Euclidean disk segment from the configured distinguished vertex to that tile's canonical center. Side 1 is the first finite tile edge met by this segment. If the segment meets a vertex, rotate counterclockwise from the segment's outward direction and take the first incident edge. Sides 2, 3, and 4 then follow counterclockwise around the square. All intersection, equal-time, orientation, and ordering tests use the selected certified scalar backend; the provider caches only the resulting local-edge permutation, never an approximate edge length.
+
+A certified crossing from canonical side \(a\) of the old tile into canonical side \(b\) of the new tile has directed symbol `a->b`. Event 0 is included, so a successful initialization crossing already gives a one-symbol word even when zero later bounces are requested. The convention identifier is `order5-radial-v1`. If a label cannot be certified, the event is not appended: Arb replays at higher precision, and a precision-ceiling or exact-backend uncertainty exports only the previously certified event and word prefix.
+
+For a token word \(w\), its factor complexity is
+
+\[
+p(n)=\#\{w_iw_{i+1}\cdots w_{i+n-1}:0\le i\le |w|-n\},
+\qquad 1\le n\le |w|.
+\]
+
+Thus \(p(n)\) counts distinct contiguous token substrings, not characters in the exported text. The browser computes all values in linear time from suffix-automaton state-length intervals and caches them for graph drawing.
+
 The construction follows the standard reflection/Wythoff description of regular hyperbolic tilings; useful background appears in the [PRX Quantum discussion of triangle-group tilings](https://journals.aps.org/prxquantum/abstract/10.1103/PRXQuantum.5.040327) and the [Clark University Poincaré tiling reference](https://mathcs.clarku.edu/~djoyce/poincare/index.html). The formulas implemented here are stated above so a run does not depend on either external site.
 
 ## Horocyclic binary (Böröczky) tiling

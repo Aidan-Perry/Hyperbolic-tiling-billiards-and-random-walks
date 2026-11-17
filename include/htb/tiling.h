@@ -94,6 +94,12 @@ typedef enum {
     HTB_INTERSECTION_TANGENT
 } htb_intersection_state;
 
+typedef enum {
+    HTB_CANONICAL_SIDE_ERROR = 0,
+    HTB_CANONICAL_SIDE_VALID = 1,
+    HTB_CANONICAL_SIDE_UNRESOLVED = 2
+} htb_canonical_side_state;
+
 typedef struct {
     htb_scalar time;
     htb_vec2 point;
@@ -161,6 +167,14 @@ typedef struct {
     int (*disk_area_approx)(const htb_tiling *tiling, const htb_tile_id *tile,
                             double *area, double *estimated_error,
                             char *error, size_t error_size);
+    /* Optional certified local-edge coding.  Providers return UNRESOLVED
+       instead of guessing when the current arithmetic context cannot prove
+       an ordering or orientation decision. */
+    htb_canonical_side_state (*canonical_side)(const htb_tiling *tiling,
+                                               const htb_tile_id *tile,
+                                               const htb_edge_ref *edge,
+                                               int *side,
+                                               char *error, size_t error_size);
 } htb_tiling_ops;
 
 struct htb_tiling_definition {
@@ -174,6 +188,7 @@ struct htb_tiling_definition {
     size_t tile_type_count;
     const htb_parameter_spec *parameters;
     size_t parameter_count;
+    const char *canonical_side_convention;
     htb_tiling_ops ops;
 };
 

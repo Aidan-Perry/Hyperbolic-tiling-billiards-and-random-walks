@@ -18,6 +18,7 @@
     "adjacency": true,
     "diskArea": true,
     "diskAreaMethod": "deterministic sampled geodesic boundary integration",
-    "referenceArea": false
+    "referenceArea": false,
+    "symbolicCoding": "order5-radial-v1"
   }
 }
